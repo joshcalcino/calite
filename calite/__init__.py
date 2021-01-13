@@ -19,6 +19,6 @@ available at ****.
 
 __version__ = '0.0.1'
 
-from . import exact, read, utils
+from . import specstruct, specio, specalib, utils
 
-__all__ = (['exact', 'read', 'utils'])
+__all__ = (['specstruct', 'specio', 'specalib', 'utils'])
