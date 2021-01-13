@@ -1,22 +1,3 @@
-# ---------------------------------------------------------- #
-# ----------------- OzDES_calibSpec_calc.py ---------------- #
-# ------- https://github.com/jhoormann/OzDES_calibSpec ----- #
-# ---------------------------------------------------------- #
-# This is a code to perform spectrophotometric calibration.  #
-# It was designed to calibrate spectral data from the Anglo  #
-# Australian Telescope by matching it to near simultaneous   #
-# photometric observations using DECam on the Blanco         #
-# Telescope as part of the OzDES Reverberation Mapping       #
-# Program.   It also has the option to coadd all spectra     #
-# observed either by observing run or by date of observation.#
-# The bulk of the calculations are defined in the file       #
-# calibSpec_calc.py.  This code defines file locations,      #
-# reads in the data, and calls the calibration function.     #
-# Unless otherwise noted this code was written by            #
-# Janie Hoormann.                                            #
-# ---------------------------------------------------------- #
-
-from astropy.io import fits
 import numpy as np
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
 from scipy.spatial.distance import pdist, cdist, squareform
@@ -27,8 +8,9 @@ import sys
 import os
 import emcee
 from chainconsumer import ChainConsumer
-from util import Spectrumv18, BBK
-import specio
+from ..utils import BBK, build_path
+from .. import specio
+from ..specstruct import SpectrumCoadd, Spectrumv18, SingleSpec
 
 
 def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, bands, filters, centers, plotFlag, coaddFlag,
@@ -170,7 +152,7 @@ def prevent_Excess(spectra, photo, bands, interpFlag):
 
     extensions = []
 
-    if interpFlag is not 'average':
+    if interpFlag != 'average':
         for s in range(spectra.numEpochs):
             # print(spectra.dates[s])
             print(photLim, photLimMin)
@@ -690,7 +672,7 @@ def fit_spectra_from_coadd(fit_spectra, coadd_spectra, centers, fit_method='emce
 
     """
 
-    if fit_method is 'emcee':
+    if fit_method == 'emcee':
 
         initial_guess = [1, 1, 1]
 
@@ -794,21 +776,6 @@ def warp_spectra(scaling, scaleErr, flux, variance, wavelength, centers, plotFla
     return fluxScale, varScale
 
 
-# -------------------------------------------------- #
-# -----------------  build path   ------------------ #
-# -------------------------------------------------- #
-# Builds a path if the path does not exist           #
-# -------------------------------------------------- #
-def build_path(filepath):
-
-    # Split up the path into each directory
-    path_split = os.path.split(filepath)
-    tmp_path = ''
-
-    for dir in path_split:
-        tmp_path = os.path.join(tmp_path, dir)
-        if not os.path.exists(tmp_path) and tmp_path != '':
-            os.mkdir(tmp_path)
 
 # -------------------------------------------------- #
 # ----------------- coadd_output  ------------------ #
@@ -1136,46 +1103,6 @@ class VerboseMessager(object):
             print("Something strange is happening")
             sys.stdout.flush()
 
-# -------------------------------------------------- #
-# ------------------- SingleSpec ------------------- #
-# -------------------------------------------------- #
-# -------------------------------------------------- #
-# Class representing a single spectrum for analysis. #
-# -------------------------------------------------- #
-class SingleSpec(object):
-    """
-    Class representing a single spectrum for analysis
-    """
-
-    ## Added filename to SingleSpec
-    def __init__(self, obj_name, wl, flux, fluxvar, badpix):
-
-        self.name = obj_name
-        # ---------------------------
-        # self.pivot = int(fibrow[9])
-        # self.xplate = int(fibrow[3])
-        # self.yplate = int(fibrow[4])
-        # self.ra = np.degrees(fibrow[1])
-        # self.dec = np.degrees(fibrow[2])
-        # self.mag=float(fibrow[10])
-        # self.header=header
-
-        self.wl = np.array(wl)
-        self.flux = np.array(flux)
-        self.fluxvar = np.array(fluxvar)
-
-        # If there is a nan in either the flux, or the variance, mark it as bad
-
-        # JKH: this was what was here originally, my version complains about it
-        # self.fluxvar[fluxvar < 0] = np.nan
-
-        for i in range(5000):
-            if (self.fluxvar[i] < 0):
-                self.fluxvar[i] = np.nan
-
-        # The following doesn't take into account
-        #self.isbad = np.any([np.isnan(self.flux), np.isnan(self.fluxvar)], axis=0)
-        self.isbad = badpix.astype(bool)
 
 # -------------------------------------------------- #
 # ------------ outlier_reject_and_coadd ------------ #

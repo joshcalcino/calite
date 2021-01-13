@@ -7,10 +7,12 @@ nuclei, and produce lightcurves.
 Features
 --------
 - add features
+
 Subpackages
 -----------
 - utils
     Contains utilities
+
 Documentation
 -------------
 See **** for documentation. The source code is

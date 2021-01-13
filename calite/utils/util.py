@@ -1,5 +1,7 @@
 import numpy as np
 import astropy.io.fits as fits
+from sklearn.gaussian_process import kernels
+import os
 
 
 def compare_spectra(spectra1, spectra2):
@@ -69,6 +71,21 @@ def split_spectra(spectraBase, obj_name, spectraEnd, timeName, time, outDir):
 
     return
 
+# -------------------------------------------------- #
+# -----------------  build path   ------------------ #
+# -------------------------------------------------- #
+# Builds a path if the path does not exist           #
+# -------------------------------------------------- #
+def build_path(filepath):
+
+    # Split up the path into each directory
+    path_split = os.path.split(filepath)
+    tmp_path = ''
+
+    for dir in path_split:
+        tmp_path = os.path.join(tmp_path, dir)
+        if not os.path.exists(tmp_path) and tmp_path != '':
+            os.mkdir(tmp_path)
 
 # -------------------------------------------------- #
 # ----------------------- BBK ---------------------- #

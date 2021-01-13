@@ -10,7 +10,7 @@ import sys
 import os
 import emcee
 from chainconsumer import ChainConsumer
-from util import Spectrumv18, BBK
+from ..utils import BBK, build_path
 
 
 

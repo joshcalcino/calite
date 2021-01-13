@@ -3,6 +3,6 @@ A submodule that contains the spectra data objects.
 
 """
 
-from spectruct import SpectrumCoadd, Spectrumv18
+from .specstruct import SpectrumCoadd, Spectrumv18, SingleSpec
 
-__all__ = ['SpectrumCoadd', 'Spectrumv18']
+__all__ = ['SpectrumCoadd', 'Spectrumv18', 'SingleSpec']
