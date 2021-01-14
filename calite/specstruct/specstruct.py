@@ -1,5 +1,6 @@
 import numpy as np
 from astropy.io import fits
+import os
 
 
 class Spectra(object):
@@ -8,6 +9,8 @@ class Spectra(object):
     calite.
 
     """
+    def __init__(self, filepath):
+        self.filepath = filepath
 
     @property
     def wavelength(self):
@@ -56,14 +59,21 @@ class Spectra(object):
             self._len_wavelength = len(self.wavelength)
         return self._len_wavelength
 
-    def _load_data(self, filepath):
+    @classmethod
+    def load_data(self, filepath):
         assert filepath != None, "No file name is specified."
-        self.filepath = filepath
+
+        if not os.path.exists(filepath):
+            print("Error: Cannot locate spectra file at {}".format(filepath))
+            raise FileNotFoundError
+
         try:
-            self.data = fits.open(filepath)
+            data = fits.open(filepath)
         except IOError:
-            yield
-            print("Error: file {0} could not be found".format(filepath))
+            print("Error loading file {0}".format(filepath))
+            raise IOError
+
+        return data
 
 
 class SpectrumCoadd(Spectra):
@@ -75,9 +85,10 @@ class SpectrumCoadd(Spectra):
     """
 
     def __init__(self, filepath=None):
+        super(Spectra, self).__init__()
 
         # Load the data and set self.data
-        _load_data(filepath)
+        self.data = self.load_data(filepath)
 
         # Set other attributes
         self.combined = self.data[0]
@@ -118,33 +129,22 @@ class SpectrumCoadd(Spectra):
         return self._runs
 
 
-
-# -------------------------------------------------- #
-# Modified from a function originally provided by    #
-# Anthea King                                        #
-# -------------------------------------------------- #
-# ------------------ Spectrumv18 ------------------- #
-# -------------------------------------------------- #
-# Read in spectral data assuming the format from v18 #
-# of the OzDES reduction pipeline. Modify if your    #
-# input data is stored differently                   #
-# -------------------------------------------------- #
-
 class Spectrumv18(Spectra):
     """
     Read in spectral data assuming the format from v18 of the OzDES reduction
     pipeline.
     """
     def __init__(self, filepath=None):
+        super(Spectra, self).__init__()
 
         # Load the data and set self.data
-        _load_data(filepath)
+        self.data = self.load_data(filepath)
 
         # Set other attributes
         self.combinedFlux = self.data[0]
         self.combinedVariance = self.data[1]
         self.combinedPixels = self.data[2]
-        self.numEpochs = int((np.size(data) - 3) / 3)
+        self.numEpochs = int((np.size(self.data) - 3) / 3)
         self.field = self.data[3].header['SOURCEF'][19:21]
         self.cdelt1 = self.combinedFlux.header['cdelt1']  # Wavelength interval between subsequent pixels
         self.crpix1 = self.combinedFlux.header['crpix1']
@@ -247,7 +247,7 @@ class SingleSpec(object):
         # JKH: this was what was here originally, my version complains about it
         # self.fluxvar[fluxvar < 0] = np.nan
 
-        for i in range(5000):
+        for i in range(len(flux)):
             if (self.fluxvar[i] < 0):
                 self.fluxvar[i] = np.nan
 

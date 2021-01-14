@@ -8,7 +8,7 @@ import sys
 import os
 import emcee
 from chainconsumer import ChainConsumer
-from ..utils import BBK, build_path
+import calite.utils as ut
 from .. import specio
 from ..specstruct import SpectrumCoadd, Spectrumv18, SingleSpec
 
@@ -46,7 +46,7 @@ def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, bands, 
         # Build the path to the plot directory if it does not exist
         filepath = os.path.dirname(plotName)
         if not os.path.exists(filepath):
-            build_path(filepath)
+            ut.build_path(filepath)
 
     else:
         plotName = False
@@ -64,19 +64,18 @@ def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, bands, 
 
     # And finally warp the data
     for s in extensions:
-        print('EXTENSIONS')
-        # scale the spectra
         if plotFlag != False:
             plotName = os.path.join(plotFlag, obj_name + "_" + str(s))
-            print(plotName)
             # plotName = plotFlag + obj_name + "_" + str(s)
         else:
             plotName = False
 
+        # scale the spectra
         spectra.flux[:, s], spectra.variance[:, s] =\
                     warp_spectra(scaling[0:3, s], scaling[3:6, s],
                                  spectra.flux[:, s], spectra.variance[:, s],
                                  spectra.wavelength, centers, plotName)
+
     if coaddFlag == False:
         specio.create_output_single(obj_name, extensions, scaling, spectra,
                                     noPhotometry, badQC, spectraName, photoName,
@@ -542,7 +541,7 @@ def des_photo_BBK(photo, dates, bands, numEpochs, plotFlag):
         s = np.array(s)
 
         # Define kernel for Gaussian process: Browning Bridge x Constant
-        kernel1 = BBK(length_scale=25, length_scale_bounds=(1, 1000))
+        kernel1 = ut.BBK(length_scale=25, length_scale_bounds=(1, 1000))
         kernel2 = kernels.ConstantKernel(constant_value=1.0, constant_value_bounds=(0.001, 10.0))
         gp = GaussianProcessRegressor(kernel=kernel1 * kernel2, alpha=s ** 2, normalize_y=True)
 
@@ -558,7 +557,7 @@ def des_photo_BBK(photo, dates, bands, numEpochs, plotFlag):
             preddates = np.linspace(min(x) - 100, max(x) + 100, 3000)
             y_predAll, sigmaAll = gp.predict(np.atleast_2d(preddates).T, return_std=True)
             y_predAll = y_predAll.flatten()
-            fig, ax1 = makeFigSingle(plotFlag + bname[b], 'Date', 'Mag', [dates[0], dates[-1]])
+            fig, ax1 = ut.makeFigSingle(plotFlag + bname[b], 'Date', 'Mag', [dates[0], dates[-1]])
 
             # I want to plot lines where the observations take place - only plot one per night though
             dateCull = dates.astype(int)
@@ -739,7 +738,7 @@ def warp_spectra(scaling, scaleErr, flux, variance, wavelength, centers, plotFla
     varScale = variance * pow(scale(wavelength), 2) + sigModel ** 2
 
     if plotFlag != False:
-        figa, ax1a, ax2a = makeFigDouble(plotFlag, "Wavelength ($\AA$)", "f$_\lambda$ (arbitrary units)",
+        figa, ax1a, ax2a = ut.makeFigDouble(plotFlag, "Wavelength ($\AA$)", "f$_\lambda$ (arbitrary units)",
                                       "f$_\lambda$ (10$^{-17}$ erg/s/cm$^2$/$\AA$)", [wavelength[0], wavelength[-1]])
 
         ax1a.plot(wavelength, flux, color='black', label="Before Calibration")
@@ -749,7 +748,7 @@ def warp_spectra(scaling, scaleErr, flux, variance, wavelength, centers, plotFla
         plt.savefig(plotFlag + "_beforeAfter.png")
         plt.close(figa)
 
-        figb, ax1b, ax2b = makeFigDouble(plotFlag, "Wavelength ($\AA$)", "f$_\lambda$ (10$^{-17}$ erg/s/cm$^2$/$\AA$)",
+        figb, ax1b, ax2b = ut.makeFigDouble(plotFlag, "Wavelength ($\AA$)", "f$_\lambda$ (10$^{-17}$ erg/s/cm$^2$/$\AA$)",
                                          "% Uncertainty", [wavelength[0], wavelength[-1]])
         ax1b.plot(wavelength, fluxScale / 10 ** -17, color='black')
 
@@ -760,7 +759,7 @@ def warp_spectra(scaling, scaleErr, flux, variance, wavelength, centers, plotFla
         plt.savefig(plotFlag + "_uncertainty.png")
         plt.close(figb)
 
-        figc, axc = makeFigSingle(plotFlag, "Wavelength ($\AA$)", "Scale Factor (10$^{-17}$ erg/s/cm$^2$/$\AA$/counts)")
+        figc, axc = ut.makeFigSingle(plotFlag, "Wavelength ($\AA$)", "Scale Factor (10$^{-17}$ erg/s/cm$^2$/$\AA$/counts)")
         axc.plot(wavelength, scale(wavelength)/10**-17, color='black')
         axc.errorbar(centers, scaling/10**-17, yerr=stddev, fmt='s', color='mediumblue')
         plt.savefig(plotFlag + "_scalefactors.png")
@@ -983,127 +982,6 @@ def filter_bad_pixels(fluxes, variances):
     return
 
 
-# -------------------------------------------------- #
-# ----------------- makeFigDouble ------------------ #
-# -------------------------------------------------- #
-# -------------------------------------------------- #
-# A function that defines a figure and axes with two #
-# panels that shares an x axis and has legible axis  #
-# labels.                                            #
-# -------------------------------------------------- #
-font = {'size': '20', 'color': 'black', 'weight': 'normal'}
-
-def makeFigDouble(title, xlabel, ylabel1, ylabel2, xlim=[0, 0], ylim1=[0, 0], ylim2=[0, 0]):
-
-    fig, (ax1, ax2) = plt.subplots(2, sharex=True)
-    fig = plt.gcf()
-    fig.set_size_inches(10, 10, forward=True)
-    fig.subplots_adjust(hspace=0)
-
-    for label in (ax1.get_xticklabels() + ax1.get_yticklabels()):
-        label.set_fontsize(20)
-    for label in (ax2.get_xticklabels() + ax2.get_yticklabels()):
-        label.set_fontsize(20)
-
-    ax1.set_ylabel(ylabel1, **font)
-    if ylim1 != [0, 0] and ylim1[0] < ylim1[1]:
-        ax1.set_ylim(ylim1)
-
-    ax2.set_ylabel(ylabel2, **font)
-    if ylim2 != [0, 0] and ylim2[0] < ylim2[1]:
-        ax2.set_ylim(ylim2)
-
-    ax2.set_xlabel(xlabel, **font)
-    if xlim != [0, 0] and xlim[0] < xlim[1]:
-        ax2.set_xlim(xlim)
-
-    ax1.set_title(title, **font)
-
-    return fig, ax1, ax2
-
-# -------------------------------------------------- #
-# ----------------- makeFigSingle ------------------ #
-# -------------------------------------------------- #
-# -------------------------------------------------- #
-# A function that defines a figure with legible axis #
-# labels.                                            #
-# -------------------------------------------------- #
-def makeFigSingle(title, xlabel, ylabel, xlim=[0, 0], ylim=[0, 0]):
-    fig = plt.figure()
-    fig = plt.gcf()
-    fig.set_size_inches(10, 10, forward=True)
-
-    ax = fig.add_subplot(111)
-    for label in (ax.get_xticklabels() + ax.get_yticklabels()):
-        label.set_fontsize(20)
-
-    ax.set_ylabel(ylabel, **font)
-    if ylim != [0, 0] and ylim[0] < ylim[1]:
-        ax.set_ylim(ylim)
-
-    ax.set_xlabel(xlabel, **font)
-    if xlim != [0, 0] and xlim[0] < xlim[1]:
-        ax.set_xlim(xlim)
-
-    ax.set_title(title, **font)
-
-    return fig, ax
-
-
-# -------------------------------------------------- #
-#  The following 4 functions were written by Chris   #
-# Lidman, Mike Childress, and maybe others for the   #
-# initial processing of the OzDES spectra.  They     #
-# were taken from the DES_coaddSpectra.py functions. #
-# -------------------------------------------------- #
-# -------------------- OzExcept -------------------- #
-# -------------------------------------------------- #
-# -------------------------------------------------- #
-# A simple exception class                           #
-# -------------------------------------------------- #
-
-
-class OzExcept(Exception):
-    """
-    Simple exception class
-    """
-
-    def __init__(self, msg):
-        self.msg = msg
-
-    def __str__(self):
-        return "{0}: {1}".format(self.__class__.__name__, msg)
-
-
-# -------------------------------------------------- #
-# ----------------- VerboseMessager ---------------- #
-# -------------------------------------------------- #
-# -------------------------------------------------- #
-# Verbose messaging for routines below.              #
-# -------------------------------------------------- #
-
-
-class VerboseMessager(object):
-    """
-    Verbose messaging for routines below
-    """
-
-    def __init__(self, verbose=False):
-        self.verbose = verbose
-
-    def __call__(self, *args):
-        if self.verbose:
-            print("Something strange is happening")
-            sys.stdout.flush()
-
-
-# -------------------------------------------------- #
-# ------------ outlier_reject_and_coadd ------------ #
-# -------------------------------------------------- #
-# -------------------------------------------------- #
-# OzDES coadding function to reject outliers and     #
-# coadd all of the spectra in the inputted list.     #
-# -------------------------------------------------- #
 def outlier_reject_and_coadd(obj_name, speclist):
     """
     Reject outliers on single-object spectra to be coadded.
