@@ -20,16 +20,6 @@ def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, bands, 
     calculate the scale factors, warping function, and output a new fits file
     with the scaled spectra.
 
-    Assumes scaling given is of the form
-    `gScale = scaling[0,:]   gError = scaling[3,:]`
-    `rScale = scaling[1,:]   rError = scaling[4,:]`
-    `iScale = scaling[2,:]   iError = scaling[5,:]`
-    `inCoaddWeather = scaling[6,:]``
-    `inCoaddPhoto = scaling[7,:]``
-    `gMag = scaling[8,:]   gMagErr = scaling[9,:]`
-    `rMag = scaling[10,:]  rMagErr = scaling[11,:]`
-    `iMag = scaling[12,:]  iMagErr = scaling[13,:]`
-
     Parameters
     ----------
     obj_name : str
@@ -81,7 +71,7 @@ def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, bands, 
                                     noPhotometry, badQC, spectraName, photoName,
                                     outBase, redshift)
 
-    elif coaddFlag in ['Run', 'Date']:
+    elif coaddFlag in ['Run', 'Date', 'All']:
         coadd_output(obj_name, extensions, scaling, spectra,
                             noPhotometry, badQC, spectraName, photoName,
                             outBase, plotFlag, coaddFlag, redshift)
@@ -90,15 +80,13 @@ def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, bands, 
 
     return
 
-# -------------------------------------------------- #
-# ---------------- prevent_Excess ------------------ #
-# -------------------------------------------------- #
-# This function removes extensions from the list to  #
-# calibrate because of insufficient photometric data #
-# or bad quality flags                               #
-# -------------------------------------------------- #
 
 def prevent_Excess(spectra, photo, bands, interpFlag):
+    """
+    This function removes extensions from the list to calibrate because of
+    insufficient photometric data or bad quality flags.
+
+    """
     # First, find the min/max date for which we have photometry taken on each side of the spectroscopic observation
     # This will be done by finding the highest date for which we have photometry in each band
     # and taking the max/min of those values
@@ -108,6 +96,7 @@ def prevent_Excess(spectra, photo, bands, interpFlag):
     # set by the delay term.
 
     maxPhot = np.zeros(3)
+    minPhot = np.array([100000, 100000, 100000])
 
     # If using Gaussian process fitting you can forecast up to 28 days.  You probably want to make some plots to check
     # this isn't crazy though!
@@ -115,29 +104,35 @@ def prevent_Excess(spectra, photo, bands, interpFlag):
     if interpFlag == 'BBK':
         delay = 28
 
-    for e in range(len(photo['Date'][:])):
-        if photo['Band'][e] == bands[0]:
-            if photo['Date'][e] > maxPhot[0]:
-                maxPhot[0] = photo['Date'][e]
-        if photo['Band'][e] == bands[1]:
-            if photo['Date'][e] > maxPhot[1]:
-                maxPhot[1] = photo['Date'][e]
-        if photo['Band'][e] == bands[2]:
-            if photo['Date'][e] > maxPhot[2]:
-                maxPhot[2] = photo['Date'][e]
-    photLim = min(maxPhot) + delay
+    if interpFlag == 'first':
+        # Ensure we do not remove any spectra based off missing photometry
+        maxPhot = np.array([np.inf, np.inf, np.inf])
+        minPhot = np.array([-np.inf, -np.inf, -np.inf])
 
-    minPhot = np.array([100000, 100000, 100000])
-    for e in range(len(photo['Date'][:])):
-        if photo['Band'][e] == bands[0]:
-            if photo['Date'][e] < minPhot[0]:
-                minPhot[0] = photo['Date'][e]
-        if photo['Band'][e] == bands[1]:
-            if photo['Date'][e] < minPhot[1]:
-                minPhot[1] = photo['Date'][e]
-        if photo['Band'][e] == bands[2]:
-            if photo['Date'][e] < minPhot[2]:
-                minPhot[2] = photo['Date'][e]
+    else:
+        for e in range(len(photo['Date'][:])):
+            if photo['Band'][e] == bands[0]:
+                if photo['Date'][e] > maxPhot[0]:
+                    maxPhot[0] = photo['Date'][e]
+            if photo['Band'][e] == bands[1]:
+                if photo['Date'][e] > maxPhot[1]:
+                    maxPhot[1] = photo['Date'][e]
+            if photo['Band'][e] == bands[2]:
+                if photo['Date'][e] > maxPhot[2]:
+                    maxPhot[2] = photo['Date'][e]
+        photLim = min(maxPhot) + delay
+
+        for e in range(len(photo['Date'][:])):
+            if photo['Band'][e] == bands[0]:
+                if photo['Date'][e] < minPhot[0]:
+                    minPhot[0] = photo['Date'][e]
+            if photo['Band'][e] == bands[1]:
+                if photo['Date'][e] < minPhot[1]:
+                    minPhot[1] = photo['Date'][e]
+            if photo['Band'][e] == bands[2]:
+                if photo['Date'][e] < minPhot[2]:
+                    minPhot[2] = photo['Date'][e]
+
     photLimMin = max(minPhot) - delay
     noPhotometry = []
     badQC = []
@@ -146,16 +141,16 @@ def prevent_Excess(spectra, photo, bands, interpFlag):
 
     extensions = []
 
-    if interpFlag != 'average':
-        for s in range(spectra.numEpochs):
+    for s in range(spectra.numEpochs):
+        if interpFlag not in ['average', 'first']:
             # Remove data with insufficient photometry
             if spectra.dates[s] > photLim:
                 noPhotometry.append(s)
             if spectra.dates[s] < photLimMin:
                 noPhotometry.append(s)
-            # Only allow spectra with quality flags 'ok' and 'backup'
-            if spectra.qc[s] not in allowedQC:
-                badQC.append(s)
+        # Only allow spectra with quality flags 'ok' and 'backup'
+        if spectra.qc[s] not in allowedQC:
+            badQC.append(s)
 
     # Make a list of extensions which need to be analyzed
     for s in range(spectra.numEpochs):
@@ -164,18 +159,15 @@ def prevent_Excess(spectra, photo, bands, interpFlag):
 
     return extensions, noPhotometry, badQC
 
-# -------------------------------------------------- #
-# ---------------- scaling_Matrix ------------------ #
-# -------------------------------------------------- #
-# finds the nearest photometry and interpolates mags #
-# to find values at the time of the spectroscopic    #
-# observations.  Calculates the mag that would be    #
-# observed from the spectra and calculates the scale #
-# factor to bring them into agreement. Saves the     #
-# data in the scaling matrix.                        #
-# -------------------------------------------------- #
 
 def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, bands, filters, interpFlag, plotFlag):
+    """
+    Finds the nearest photometry and interpolates mags to find values at the
+    time of the spectroscopic observations. Calculates the mag that would be
+    observed from the spectra and calculates the scale factors to bring
+    them into agreement. Saves the data in the scaling matrix.
+
+    """
     # scale factors for each extension saved in the following form
     # gScale = scaling[0,:]   gError = scaling[3,:]
     # rScale = scaling[1,:]   rError = scaling[4,:]
@@ -229,7 +221,7 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, bands, filte
         scaling[11, :] = desPhotoU[1, :]
         scaling[13, :] = desPhotoU[2, :]
 
-    if interpFlag == 'fstars':
+    if interpFlag == 'first':
         desPhoto, desPhotoU = photo_from_fstars(photo, spectra.dates, bands, spectra.numEpochs, plotFlag)
 
         scaling[8, :] = desPhoto[0, :]
@@ -287,18 +279,9 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, bands, filte
 
     return badData, scaling
 
-# -------------------------------------------------- #
-# The next three functions are modified from code    #
-# provided by Dale Mudd                              #
-# -------------------------------------------------- #
-# ------------------ filterCurve ------------------- #
-# -------------------------------------------------- #
-# creates a class to hold the transmission function  #
-# for each band.                                     #
-# -------------------------------------------------- #
 
 class filterCurve:
-    """A filter"""
+    """ Creates a class to hold the transmission function for each band. """
 
     def __init__(self):
         self.wave = np.array([], 'float')
@@ -322,14 +305,12 @@ class filterCurve:
         self.wave = self.wave * factor
         return
 
-# -------------------------------------------------- #
-# ---------------- readFilterCurve ----------------- #
-# -------------------------------------------------- #
-# Reads in the filter curves and stores it as the    #
-# filter curve class.                                #
-# -------------------------------------------------- #
 
 def readFilterCurves(bands, filters):
+    """
+    Reads in a filter curve and stores it as the filter curve class.
+
+    """
 
     filterCurves = {}
     for f in bands:
@@ -338,15 +319,13 @@ def readFilterCurves(bands, filters):
 
     return filterCurves
 
-# -------------------------------------------------- #
-# ----------------- computeABmag ------------------- #
-# -------------------------------------------------- #
-# computes the AB magnitude for given transmission   #
-# functions and spectrum (f_lambda).  Returns the    #
-# magnitude and variance.                            #
-# -------------------------------------------------- #
 
 def computeABmag(trans_flux, trans_wave, tmp_wave, tmp_flux, tmp_var):
+    """
+    Computes the AB magnitude for given transmission functions and spectrum
+    `f_lambda`. Returns the magnitude and variance.
+    """
+
     # Takes and returns variance
     # trans_ : transmission function data
     # tmp_ : spectral data
@@ -393,13 +372,6 @@ def computeABmag(trans_flux, trans_wave, tmp_wave, tmp_flux, tmp_var):
 
     return magAB, magABvar
 
-# -------------------------------------------------- #
-# ------------------ des_photo  -------------------- #
-# -------------------------------------------------- #
-# Finds nearest photometry on both sides of spectral #
-# observations and interpolates to find value at the #
-# time of the spectral observation.                  #
-# -------------------------------------------------- #
 
 def des_photo(photo, spectral_mjd, bands):
 
@@ -431,13 +403,35 @@ def des_photo(photo, spectral_mjd, bands):
     return mags, errs
 
 
-# -------------------------------------------------- #
-# ------------------ des_photo_avg ----------------- #
-# -------------------------------------------------- #
-#
-# -------------------------------------------------- #
-
 def des_photo_avg(photo, bands, numEpochs):
+
+    """Performs an average on photometry data.
+    For now this just averages over the whole file.  """
+
+    # Assumes dates are in chronological order!!!
+    mags = np.zeros((3, numEpochs))
+    errs = np.zeros((3, numEpochs))
+
+    g_mags = []
+    r_mags = []
+    i_mags = []
+
+    for i, band in enumerate(photo['Band']):
+        if band == bands[0]:
+            g_mags.append(photo['Mag'][i])
+        if band == bands[1]:
+            r_mags.append(photo['Mag'][i])
+        if band == bands[2]:
+            i_mags.append(photo['Mag'][i])
+
+    mags[0, :], errs[0, :] = np.mean(g_mags), np.std(g_mags)
+    mags[1, :], errs[1, :] = np.mean(r_mags), np.std(r_mags)
+    mags[2, :], errs[2, :] = np.mean(i_mags), np.std(i_mags)
+
+    return mags, errs
+
+
+def photo_from_fstars(photo, bands, numEpochs):
 
     """Performs an average on photometry data.
     For now this just averages over the whole file.  """
@@ -468,11 +462,27 @@ def des_photo_avg(photo, bands, numEpochs):
     return mags, errs
 
 
-# -------------------------------------------------- #
-# ------------------ photo_from_fstars ----------------- #
-# -------------------------------------------------- #
-#
-# -------------------------------------------------- #
+def photo_standard(photo, bands, numEpochs, uncertainty=0.01):
+
+    """
+    Makes the photometry arrays for sources that do not vary.
+
+    """
+
+    # Assumes dates are in chronological order!!!
+    mags = np.zeros((3, numEpochs))
+    errs = np.zeros((3, numEpochs))
+
+    g_mags = photo['gmag']
+    r_mags = photo['rmag']
+    i_mags = photo['imag']
+
+    mags[0, :], errs[0, :] = g_mags, uncertainty
+    mags[1, :], errs[1, :] = r_mags, uncertainty
+    mags[2, :], errs[2, :] = i_mags, uncertainty
+
+    return mags, errs
+
 
 def photo_from_fstars(photo, bands, numEpochs):
 
@@ -506,17 +516,13 @@ def photo_from_fstars(photo, bands, numEpochs):
     return mags, errs
 
 
-# -------------------------------------------------- #
-# ---------------- des_photo_BBK  ------------------ #
-# -------------------------------------------------- #
-# Finds nearest photometry on both sides of spectral #
-# observations and interpolates to find value at the #
-# time of the spectral observations using Brownian   #
-# Bridge Gaussian processes.  This is better for     #
-# sparser data.                                      #
-# -------------------------------------------------- #
-
 def des_photo_BBK(photo, dates, bands, numEpochs, plotFlag):
+    """
+    Finds nearest photometry on both sides of spectral observations and
+    interpolates to find value at the time of the spectral observaitons using
+    Brownian Bridge Gaussian processes. This is better for sparser data.
+
+    """
 
     # Assumes dates are in chronological order!!!
     mags = np.zeros((3, numEpochs))
@@ -580,36 +586,32 @@ def des_photo_BBK(photo, dates, bands, numEpochs, plotFlag):
 
     return mags, errs
 
-# -------------------------------------------------- #
-# --------------- interpolatePhot  ----------------- #
-# -------------------------------------------------- #
-# Performs linear interpolation and propagates the   #
-# uncertainty to return you a variance.              #
-# -------------------------------------------------- #
 
 def interpolatePhot(x, y, s, val):
+    """
+    Performs linear interpolation and propagates the unvertainty to return
+    you a variance.
+
+    """
     # takes sigma returns variance
     # x - x data points (list)
     # y - y data points (list)
     # s - sigma on y data points (list)
     # val - x value to interpolate to (number)
 
-    mag = y[0] + (val - x[0]) * (y[1] - y[0]) / (x[1] - x[0])
+    mag = y[0] + (val - x[0]) * (y[1] - y[0])/(x[1] - x[0])
 
-    err = s[0] ** 2 + (s[0] ** 2 + s[1] ** 2) * ((val - x[0]) / (x[1] - x[0])) ** 2
+    err = s[0]**2 + (s[0]**2 + s[1]**2) * ((val - x[0])/(x[1] - x[0]))**2
 
     return mag, err
 
-# -------------------------------------------------- #
-# ---------------- scale_factors  ------------------ #
-# -------------------------------------------------- #
-# Calculates the scale factor and variance needed to #
-# change spectroscopically derived magnitude to the  #
-# observed photometry.                               #
-# -------------------------------------------------- #
 
 def scale_factors(mag_diff, mag_diff_var):
-    # takes and returns variance
+    """
+    Calculates the scale factor and variance needed to change spectrscopically
+    derived magnitude to the observed photometry.
+
+    """
 
     flux_ratio = np.power(10., 0.4 * mag_diff)  # f_synthetic/f_photometry
     scale_factor = (1. / flux_ratio)
@@ -700,16 +702,13 @@ def fit_spectra_to_coadd(fit_spectra, coadd_spectra, centers, fit_method='emcee'
     return scale_params
 
 
-# -------------------------------------------------- #
-# ----------------- warp_spectra  ------------------ #
-# -------------------------------------------------- #
-# Fits polynomial to scale factors and estimates     #
-# associated uncertainties with gaussian processes.  #
-# If the plotFlag variable is not False it will save #
-# some diagnostic plots.                             #
-# -------------------------------------------------- #
-
 def warp_spectra(scaling, scaleErr, flux, variance, wavelength, centers, plotFlag):
+    """
+    Fits polynomial to scale factors and estimates associated uncertainties
+    with Gaussian processes. If the plotFlag variable is not False it will
+    save some diagnotic plots.
+
+    """
 
     # associate scale factors with centers of bands and fit 2D polynomial to form scale function.
     scale = InterpolatedUnivariateSpline(centers, scaling, k=2)
@@ -768,14 +767,11 @@ def warp_spectra(scaling, scaleErr, flux, variance, wavelength, centers, plotFla
     return fluxScale, varScale
 
 
-
-# -------------------------------------------------- #
-# ----------------- coadd_output  ------------------ #
-# -------------------------------------------------- #
-# Coadds the observations based on run or night.     #
-# -------------------------------------------------- #
 def coadd_output(obj_name, extensions, scaling, spectra, noPhotometry, badQC, spectraName, photoName, outBase, plotFlag,
                  coaddFlag, redshift):
+    """
+    Coadds the observations based on run or night.
+    """
 
     # Get a list of items (dates/runs) over which all observations will be coadded
     coaddOver = []
@@ -795,9 +791,9 @@ def coadd_output(obj_name, extensions, scaling, spectra, noPhotometry, badQC, sp
                 coaddOver.append(int(spectra.dates[e]))
 
 
-    coaddFlux = np.zeros((5000, len(coaddOver) + 1))
-    coaddVar = np.zeros((5000, len(coaddOver) + 1))
-    coaddBadPix = np.zeros((5000, len(coaddOver) + 1))
+    coaddFlux = np.zeros((spectra.len_wavelength, len(coaddOver) + 1))
+    coaddVar = np.zeros((spectra.len_wavelength, len(coaddOver) + 1))
+    coaddBadPix = np.zeros((spectra.len_wavelength, len(coaddOver) + 1))
 
     speclistC = []  # For total coadd of observation
     index = 1
@@ -846,23 +842,18 @@ def coadd_output(obj_name, extensions, scaling, spectra, noPhotometry, badQC, sp
 
     return
 
-# -------------------------------------------------- #
-# Modified from code originally provided by          #
-# Harry Hobson                                       #
-# -------------------------------------------------- #
-# ------------------ mark_as_bad ------------------- #
-# -------------------------------------------------- #
-# Occasionally you get some big spikes in the data   #
-# that you do not want messing with your magnitude   #
-# calculations.  Remove these by looking at single   #
-# bins that have a significantly 4.5 larger than     #
-# average fluxes or variances and change those to    #
-# nans. Nans will be interpolated over.  The         #
-# threshold should be chosen to weigh removing       #
-# extreme outliers and removing noise.               #
-# -------------------------------------------------- #
 
 def mark_as_bad(fluxes, variances):
+    """
+    Occasionally you get some big spikes in the data that you do not want
+    messing with your magnitude calculations. Remove these by
+    looking at single bins that have a significantly 4.5 larger than
+    averages fluxes or variances and change those to NaNs. NaNs will be
+    interpolated over. The threshold should be chosen to weigh removing
+    extreme outliers and removing noise.
+
+    """
+
     number = int(fluxes.size/fluxes.shape[0])
     for epoch in range(number):
         if number == 1:
@@ -925,15 +916,10 @@ def mark_as_bad(fluxes, variances):
     return
 
 
-# -------------------------------------------------- #
-# Modified from code originally provided by          #
-# Harry Hobson                                       #
-# -------------------------------------------------- #
-# --------------- filter_bad_pixels ---------------- #
-# -------------------------------------------------- #
-# Interpolates over nans in the spectrum.            #
-# -------------------------------------------------- #
 def filter_bad_pixels(fluxes, variances):
+    """
+    Interpolates over NaNs in the spectrum.
+    """
     number = int(fluxes.size/fluxes.shape[0])
     for epoch in range(number):
         if (number == 1):
@@ -1127,6 +1113,16 @@ def outlier_reject_and_coadd(obj_name, speclist):
     # now scale the original variance and combine with scale factor uncertainty
     varScale = variance * pow(scale(wavelength), 2) + sigModel ** 2
 
+
+    Assumes scaling given is of the form
+    `gScale = scaling[0,:]   gError = scaling[3,:]`
+    `rScale = scaling[1,:]   rError = scaling[4,:]`
+    `iScale = scaling[2,:]   iError = scaling[5,:]`
+    `inCoaddWeather = scaling[6,:]``
+    `inCoaddPhoto = scaling[7,:]``
+    `gMag = scaling[8,:]   gMagErr = scaling[9,:]`
+    `rMag = scaling[10,:]  rMagErr = scaling[11,:]`
+    `iMag = scaling[12,:]  iMagErr = scaling[13,:]`
 
 
 """

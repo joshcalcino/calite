@@ -53,11 +53,6 @@ class Spectra(object):
                 # this give Modified Julian Date (UTC) that observation was taken
         return self._dates
 
-    @property
-    def len_wavelength(self):
-        if getattr(self, '_len_wavelength', None) is None:
-            self._len_wavelength = len(self.wavelength)
-        return self._len_wavelength
 
     @classmethod
     def load_data(self, filepath):
@@ -105,6 +100,7 @@ class SpectrumCoadd(Spectra):
         self.RA = self.combined.header['RA']
         self.DEC = self.combined.header['DEC']
         self.field = self.combined.header['FIELD']
+        self.len_wavelength = len(self.wavelength)
 
     @property
     def fluxCoadd(self):
@@ -156,6 +152,8 @@ class Spectrumv18(Spectra):
         self.fluxCoadd = self.combinedFlux.data
         self.varianceCoadd = self.combinedVariance.data
         self.badpixCoadd = self.combinedPixels.data
+        self.len_wavelength = len(self.wavelength)
+
 
         self._wavelength = None
         self._flux = None
