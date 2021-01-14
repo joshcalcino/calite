@@ -40,15 +40,8 @@ def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, bands, 
 
     """
 
-    # First we decide which extensions are worth scaling
-    extensions, noPhotometry, badQC = prevent_Excess(spectra, photo, bands, interpFlag)
-    print("noPhotometry", noPhotometry)
-    print("extensions", extensions)
-
-    # Then we calculate the scale factors
     if plotFlag != False:
         plotName = os.path.join(plotFlag, obj_name)
-        # print(plotName)
 
         # Build the path to the plot directory if it does not exist
         filepath = os.path.dirname(plotName)
@@ -57,11 +50,13 @@ def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, bands, 
 
     else:
         plotName = False
+
+    # First we decide which extensions are worth scaling
+    extensions, noPhotometry, badQC = prevent_Excess(spectra, photo, bands, interpFlag)
+
+    # Then we calculate the scale factors
     badData, scaling = scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, bands, filters, interpFlag,
                                         plotName)
-    print("extensions", extensions)
-    print("badQC", badQC)
-    print("badData", badData)
 
     # Remove last minute trouble makers
     extensions = [e for e in extensions if e not in badData]
@@ -154,8 +149,6 @@ def prevent_Excess(spectra, photo, bands, interpFlag):
 
     if interpFlag != 'average':
         for s in range(spectra.numEpochs):
-            # print(spectra.dates[s])
-            print(photLim, photLimMin)
             # Remove data with insufficient photometry
             if spectra.dates[s] > photLim:
                 noPhotometry.append(s)
@@ -646,7 +639,7 @@ def spectra_log_likelihood(scaling, flux, coadd_flux, coadd_variance, centers, w
     return -0.5 * chi2
 
 
-def fit_spectra_from_coadd(fit_spectra, coadd_spectra, centers, fit_method='emcee'):
+def fit_spectra_to_coadd(fit_spectra, coadd_spectra, centers, fit_method='emcee'):
     """
     Fit a spectra to co-added spectra and determine uncertainties.
 
