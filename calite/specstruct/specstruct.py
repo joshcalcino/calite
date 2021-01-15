@@ -228,7 +228,7 @@ class SingleSpec(object):
     """
 
     ## Added filename to SingleSpec
-    def __init__(self, obj_name, wl, flux, fluxvar, badpix):
+    def __init__(self, obj_name, wavelength, flux, variance, badpix):
 
         self.name = obj_name
         # ---------------------------
@@ -240,22 +240,23 @@ class SingleSpec(object):
         # self.mag=float(fibrow[10])
         # self.header=header
 
-        self.wl = np.array(wl)
+        self.wavelength = np.array(wavelength)
         self.flux = np.array(flux)
-        self.fluxvar = np.array(fluxvar)
+        self.variance = np.array(variance)
+        self.badpix = badpix
 
         # If there is a nan in either the flux, or the variance, mark it as bad
 
         # JKH: this was what was here originally, my version complains about it
         # self.fluxvar[fluxvar < 0] = np.nan
 
-        for i in range(len(flux)):
-            if (self.fluxvar[i] < 0):
-                self.fluxvar[i] = np.nan
+        for i in range(len(self.flux)):
+            if (self.variance[i] < 0):
+                self.variance[i] = np.nan
 
         # The following doesn't take into account
         #self.isbad = np.any([np.isnan(self.flux), np.isnan(self.fluxvar)], axis=0)
-        self.isbad = badpix.astype(bool)
+        self.isbad = self.badpix.astype(bool)
 
 
 class Photo(object):
@@ -266,16 +267,20 @@ class Photo(object):
 
     def __init__(self, filepath=None, **kwargs):
         self.filepath = filepath
+        self.kwargs = kwargs
 
         if self.filepath != None:
             self.read_data(filepath)
 
 
-    def read_data(self, filepath):
+    def read_data(self, filepath, **kwargs):
         """
         A generic read data function.
 
         """
+
+        photo = np.loadtxt(photoName, dtype={'names':('Date', 'Mag', 'Mag_err', 'Band'),
+                                             'formats':(np.float, np.float, np.float, '|S15')}, skiprows=1)
 
 
 
@@ -332,11 +337,13 @@ class FilterCurve:
 
         """
 
+        # Make sure that the units is given as a string..
         try:
             assert (type(units) == str or type(units) == bytes)
         except AssertionError:
             raise TypeError("units must be string or bytes type")
 
+        # Check if units is either angstroms or nanometers
         if units.lower() in ['angstroms', 'angstrom', 'ang', 'a']:
             return 'angstrom'
 
@@ -361,9 +368,11 @@ class FilterCurves(FilterCurve):
         self.bands = bands
         self.centers = centers
 
+        # Sanity check to make sure that len(bands) is the same as len(filepaths)
         assert len(self.filepaths) == len(self.bands), "There must be the same number of \
                                                         bands as filepaths. "
 
+        # Store each filter curve in in the FilterCurve class
         self._curves = []
 
         for i, filepath in enumerate(self.filepaths):
@@ -371,7 +380,15 @@ class FilterCurves(FilterCurve):
 
 
     def __getitem__(self, band):
-        print(self.bands)
+        """
+        This allows us to access each band by simply indexing an instance of
+        the FilterCurves class with the name of the band.
+
+        e.g. `filtercurve = FilterCurves(filepaths, bands, centers)`
+             `g_band = filtercurve['g']`
+
+        """
+        
         try:
             col = self._curves.index(band)
             return self._curves[col]
