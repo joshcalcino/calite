@@ -13,7 +13,7 @@ from .. import specio
 from ..specstruct import SpectrumCoadd, Spectrumv18, SingleSpec
 
 
-def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, filters, plotFlag, coaddFlag,
+def calibSpec(obj_name, spectra, photo, photoName, outBase, filters, plotFlag, coaddFlag,
               interpFlag, redshift):
     """
     This function will determine extensions which can be calibrated,
@@ -60,8 +60,6 @@ def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, filters
         else:
             plotName = False
 
-        print(spectra.data[s].header)
-
         title = '{} {}'.format(spectra.data[s*3].header['RA'], spectra.data[s*3].header['DEC'])
 
         # scale the spectra
@@ -72,12 +70,12 @@ def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, filters
 
     if coaddFlag == False:
         specio.create_output_single(obj_name, extensions, scaling, spectra,
-                                    noPhotometry, badQC, spectraName, photoName,
+                                    noPhotometry, badQC, photoName,
                                     outBase, redshift)
 
     elif coaddFlag in ['Run', 'Date', 'All']:
         coadd_output(obj_name, extensions, scaling, spectra,
-                            noPhotometry, badQC, spectraName, photoName,
+                            noPhotometry, badQC, photoName,
                             outBase, plotFlag, coaddFlag, redshift)
     else:
         print("What do you want me to do with this data? Please specify output type.")
@@ -700,7 +698,7 @@ def warp_spectra(scaling, scaleErr, flux, variance, wavelength, centers, plotFla
     return fluxScale, varScale
 
 
-def coadd_output(obj_name, extensions, scaling, spectra, noPhotometry, badQC, spectraName, photoName, outBase, plotFlag,
+def coadd_output(obj_name, extensions, scaling, spectra, noPhotometry, badQC, photoName, outBase, plotFlag,
                  coaddFlag, redshift):
     """
     Coadds the observations based on run or night.
@@ -770,7 +768,7 @@ def coadd_output(obj_name, extensions, scaling, spectra, noPhotometry, badQC, sp
     mark_as_bad(coaddFlux, coaddVar)
 
     specio.create_output_coadd(obj_name, coaddOver, coaddFlux, coaddVar, coaddBadPix, extensions, scaling, spectra, redshift,
-                        badQC, noPhotometry, spectraName, photoName, outBase, coaddFlag)
+                        badQC, noPhotometry, photoName, outBase, coaddFlag)
 
 
     return

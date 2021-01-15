@@ -13,8 +13,7 @@ from chainconsumer import ChainConsumer
 from ..utils import BBK, build_path
 
 
-
-def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, badQC, spectraName, photoName, outBase,
+def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, badQC, photoName, outBase,
                          redshift):
     """Apply clibration to spectra and save to a new file.
     Parameters
@@ -62,7 +61,7 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
         header['z'] = redshift[0]
 
         # save the names of the input data and the extensions ignored
-        header['SFILE'] = spectraName
+        header['SFILE'] = spectra.filepath
         header['PFILE'] = photoName
         header['NOPHOTO'] = ','.join(map(str, noPhotometryExt))
         header['BADQC'] = ','.join(map(str, badQCExt))
@@ -100,7 +99,7 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
             hdulist[0].header['EPOCHS'] = len(extensions)
 
             # save the names of the input data and the extensions ignored
-            hdulist[0].header['SFILE'] = spectraName
+            hdulist[0].header['SFILE'] = spectra.filepath
             hdulist[0].header['PFILE'] = photoName
             hdulist[0].header['NOPHOTO'] = ','.join(map(str, noPhotometryExt))
             hdulist[0].header['BADQC'] = ','.join(map(str, badQCExt))
@@ -148,7 +147,7 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
 
 
 def create_output_coadd(obj_name, runList, fluxArray, varianceArray, badpixArray, extensions, scaling, spectra, redshift,
-                        badQC, noPhotometry, spectraName, photoName, outBase, coaddFlag):
+                        badQC, noPhotometry, photoName, outBase, coaddFlag):
     """
     Outputs the warped and coadded spectra to a new fits file.
 
@@ -181,7 +180,7 @@ def create_output_coadd(obj_name, runList, fluxArray, varianceArray, badpixArray
     hdulist[0].header['FIELD'] = spectra.field
     hdulist[0].header['OBSNUM'] = len(runList)
     hdulist[0].header['z'] = redshift[0]
-    hdulist[0].header['SFILE'] = spectraName
+    hdulist[0].header['SFILE'] = spectra.filepath
     hdulist[0].header['PFILE'] = photoName
     hdulist[0].header['METHOD'] = coaddFlag
     hdulist[0].header['NOPHOTO'] = ','.join(map(str, noPhotometryExt))

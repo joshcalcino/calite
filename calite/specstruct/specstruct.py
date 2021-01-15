@@ -79,8 +79,10 @@ class SpectrumCoadd(Spectra):
 
     """
 
-    def __init__(self, filepath=None):
+    def __init__(self, filepath):
         super(Spectra, self).__init__()
+
+        self.filepath = filepath
 
         # Load the data and set self.data
         self.data = self.load_data(filepath)
@@ -129,12 +131,15 @@ class Spectrumv18(Spectra):
     """
     Read in spectral data assuming the format from v18 of the OzDES reduction
     pipeline.
+
     """
-    def __init__(self, filepath=None):
+    def __init__(self, filepath):
         super(Spectra, self).__init__()
 
+        self.filepath = filepath
+
         # Load the data and set self.data
-        self.data = self.load_data(filepath)
+        self.data = self.load_data(self.filepath)
 
         # Set other attributes
         self.combinedFlux = self.data[0]
@@ -153,7 +158,6 @@ class Spectrumv18(Spectra):
         self.varianceCoadd = self.combinedVariance.data
         self.badpixCoadd = self.combinedPixels.data
         self.len_wavelength = len(self.wavelength)
-
 
         self._wavelength = None
         self._flux = None
@@ -254,8 +258,34 @@ class SingleSpec(object):
         self.isbad = badpix.astype(bool)
 
 
+class Photo(object):
+    """
+    A class to hold photometry data.
+
+    """
+
+    def __init__(self, filepath=None, **kwargs):
+        self.filepath = filepath
+
+        if self.filepath != None:
+            self.read_data(filepath)
+
+
+    def read_data(self, filepath):
+        """
+        A generic read data function.
+
+        """
+
+
+
+
+
 class FilterCurve:
-    """ A class to hold the transmission function for a particular band. """
+    """
+    A class to hold the transmission function for a particular band.
+
+    """
 
     def __init__(self, filepath, band, center, units='angstrom'):
         self.filepath = filepath

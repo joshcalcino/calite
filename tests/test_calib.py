@@ -78,5 +78,5 @@ else:
 
 
 # Calls the main function which does the calibration
-cal.specalib.calibSpec(obj_name, spectra, photo, spectraName, photoName, outDir, filters, plotFlag,
+cal.specalib.calibSpec(obj_name, spectra, photo, photoName, outDir, filters, plotFlag,
                coaddFlag, interpFlag, redshift)
