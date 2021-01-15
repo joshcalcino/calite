@@ -13,7 +13,7 @@ from .. import specio
 from ..specstruct import SpectrumCoadd, Spectrumv18, SingleSpec
 
 
-def calibSpec(obj_name, spectra, photo, photoName, outBase, filters, plotFlag, coaddFlag,
+def calibSpec(obj_name, spectra, photo, outBase, filters, plotFlag, coaddFlag,
               interpFlag, redshift):
     """
     This function will determine extensions which can be calibrated,
@@ -70,12 +70,12 @@ def calibSpec(obj_name, spectra, photo, photoName, outBase, filters, plotFlag, c
 
     if coaddFlag == False:
         specio.create_output_single(obj_name, extensions, scaling, spectra,
-                                    noPhotometry, badQC, photoName,
+                                    noPhotometry, badQC, photo.name,
                                     outBase, redshift)
 
     elif coaddFlag in ['Run', 'Date', 'All']:
         coadd_output(obj_name, extensions, scaling, spectra,
-                            noPhotometry, badQC, photoName,
+                            noPhotometry, badQC, photo.name,
                             outBase, plotFlag, coaddFlag, redshift)
     else:
         print("What do you want me to do with this data? Please specify output type.")

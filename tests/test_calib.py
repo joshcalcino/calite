@@ -56,16 +56,24 @@ obj_name = names
 spectraName = spectraBase + obj_name + spectraEnd
 photoName = photoBase + obj_name + photoEnd
 
+print("Input Photometry Name: %s" % photoName)
+# photo = np.loadtxt(photoName, dtype={'names':('Date', 'Mag', 'Mag_err', 'Band'),
+#                                      'formats':(np.float, np.float, np.float, '|S15')}, skiprows=1)
+
+photo_dtype = {'names':('Date', 'Mag', 'Mag_err', 'Band'),
+                                     'formats':(np.float, np.float, np.float, '|S15')}
+
+photo_kwargs = {'dtype' : photo_dtype, 'skiprows': 1}
+
+photo = cal.specstruct.Photo(filepath=photoName, name=obj_name, **photo_kwargs)
+
+
 print("Input Spectra Name: %s" % spectraName)
 spectra = cal.specstruct.Spectrumv18(spectraName)
 
 # Clean up the spectra.  Marks large isolated large variations in flux and variance as bad (nan) and linearly
 # interpolates over all nans
 cal.specalib.mark_as_bad(spectra.flux, spectra.variance)
-
-print("Input Photometry Name: %s" % photoName)
-photo = np.loadtxt(photoName, dtype={'names':('Date', 'Mag', 'Mag_err', 'Band'),
-                                     'formats':(np.float, np.float, np.float, '|S15')}, skiprows=1)
 
 if redshifts != False:
     if obj_name in zid:
@@ -78,5 +86,5 @@ else:
 
 
 # Calls the main function which does the calibration
-cal.specalib.calibSpec(obj_name, spectra, photo, photoName, outDir, filters, plotFlag,
+cal.specalib.calibSpec(obj_name, spectra, photo, outDir, filters, plotFlag,
                coaddFlag, interpFlag, redshift)

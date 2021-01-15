@@ -265,13 +265,24 @@ class Photo(object):
 
     """
 
-    def __init__(self, filepath=None, **kwargs):
+    def __init__(self, filepath=None, name=None, **kwargs):
         self.filepath = filepath
+        self.name = name
         self.kwargs = kwargs
 
-        if self.filepath != None:
-            self.read_data(filepath)
+        self.data = None
 
+        if self.filepath != None:
+            self.read_data(filepath, **kwargs)
+
+
+    def __getitem__(self, item):
+        try:
+            col = self.data[item]
+            return col
+
+        except ValueError:
+            print("{} is not a valid key for class Photo".format(item))
 
     def read_data(self, filepath, **kwargs):
         """
@@ -279,8 +290,12 @@ class Photo(object):
 
         """
 
-        photo = np.loadtxt(photoName, dtype={'names':('Date', 'Mag', 'Mag_err', 'Band'),
-                                             'formats':(np.float, np.float, np.float, '|S15')}, skiprows=1)
+        self.data = np.loadtxt(filepath, **kwargs)
+
+
+
+
+
 
 
 
@@ -297,9 +312,10 @@ class FilterCurve:
         self.band = band
         self.center = center
 
-        # Set the units
+        # Set a factor
         self.factor = 1
 
+        # This factor is used to convert the units to angstrom if necessary
         if self._read_units(units) in 'angstrom':
             self.factor = 10
 
@@ -328,7 +344,7 @@ class FilterCurve:
                     self.wavelength = np.append(self.wavelength, float(entries[0]))
                     self.transmission = np.append(self.transmission, float(entries[1]))
 
-        # We use Angstroms for the wavelength in the filter transmission file
+        # Update wavelength with the relevant factor to get the units into ang
         self.wavelength = self.wavelength * self.factor
 
     def _read_units(self, units):
@@ -388,7 +404,7 @@ class FilterCurves(FilterCurve):
              `g_band = filtercurve['g']`
 
         """
-        
+
         try:
             col = self._curves.index(band)
             return self._curves[col]
