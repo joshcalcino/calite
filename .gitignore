@@ -3,4 +3,6 @@ scripts/
 build/
 tests/calib_test  
 tests/plots
+dist/
+build_test.sh
 !**/__pycache__/
