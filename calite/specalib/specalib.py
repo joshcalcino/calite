@@ -13,7 +13,7 @@ from .. import specio
 from ..specstruct import SpectrumCoadd, Spectrumv18, SingleSpec
 
 
-def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, bands, filters, centers, plotFlag, coaddFlag,
+def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, filters, plotFlag, coaddFlag,
               interpFlag, redshift):
     """
     This function will determine extensions which can be calibrated,
@@ -42,10 +42,10 @@ def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, bands, 
         plotName = False
 
     # First we decide which extensions are worth scaling
-    extensions, noPhotometry, badQC = prevent_Excess(spectra, photo, bands, interpFlag)
+    extensions, noPhotometry, badQC = prevent_Excess(spectra, photo, filters.bands, interpFlag)
 
     # Then we calculate the scale factors
-    badData, scaling = scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, bands, filters, interpFlag,
+    badData, scaling = scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, filters, interpFlag,
                                         plotName)
 
     # Remove last minute trouble makers
@@ -60,11 +60,15 @@ def calibSpec(obj_name, spectra, photo, spectraName, photoName, outBase, bands, 
         else:
             plotName = False
 
+        print(spectra.data[s].header)
+
+        title = '{} {}'.format(spectra.data[s*3].header['RA'], spectra.data[s*3].header['DEC'])
+
         # scale the spectra
         spectra.flux[:, s], spectra.variance[:, s] =\
                     warp_spectra(scaling[0:3, s], scaling[3:6, s],
                                  spectra.flux[:, s], spectra.variance[:, s],
-                                 spectra.wavelength, centers, plotName)
+                                 spectra.wavelength, filters.centers, plotName, plotTitle=title)
 
     if coaddFlag == False:
         specio.create_output_single(obj_name, extensions, scaling, spectra,
@@ -160,7 +164,7 @@ def prevent_Excess(spectra, photo, bands, interpFlag):
     return extensions, noPhotometry, badQC
 
 
-def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, bands, filters, interpFlag, plotFlag):
+def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, filters, interpFlag, plotFlag):
     """
     Finds the nearest photometry and interpolates mags to find values at the
     time of the spectroscopic observations. Calculates the mag that would be
@@ -197,10 +201,8 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, bands, filte
     ozdesPhotoU = np.zeros((3, spectra.numEpochs))
     desPhotoU = np.zeros((3, spectra.numEpochs))
 
-    filterCurves = readFilterCurves(bands, filters)
-
     if interpFlag == 'BBK':
-        desPhoto, desPhotoU = des_photo_BBK(photo, spectra.dates, bands, spectra.numEpochs, plotFlag)
+        desPhoto, desPhotoU = des_photo_BBK(photo, spectra.dates, filters.bands, spectra.numEpochs, plotFlag)
 
         scaling[8, :] = desPhoto[0, :]
         scaling[10, :] = desPhoto[1, :]
@@ -211,7 +213,7 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, bands, filte
         scaling[13, :] = desPhotoU[2, :]
 
     if interpFlag == 'average':
-        desPhoto, desPhotoU = des_photo_avg(photo, bands, spectra.numEpochs)
+        desPhoto, desPhotoU = des_photo_avg(photo, filters.bands, spectra.numEpochs)
 
         scaling[8, :] = desPhoto[0, :]
         scaling[10, :] = desPhoto[1, :]
@@ -221,8 +223,8 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, bands, filte
         scaling[11, :] = desPhotoU[1, :]
         scaling[13, :] = desPhotoU[2, :]
 
-    if interpFlag == 'first':
-        desPhoto, desPhotoU = photo_from_fstars(photo, spectra.dates, bands, spectra.numEpochs, plotFlag)
+    if interpFlag == 'flats':
+        desPhoto, desPhotoU = photo_standard(photo, spectra.dates, bands, spectra.numEpochs, plotFlag)
 
         scaling[8, :] = desPhoto[0, :]
         scaling[10, :] = desPhoto[1, :]
@@ -237,13 +239,13 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, bands, filte
     for e in extensions:
         # Find OzDES photometry
 
-        ozdesPhoto[0, e], ozdesPhotoU[0, e] = computeABmag(filterCurves[bands[0]].trans, filterCurves[bands[0]].wave,
+        ozdesPhoto[0, e], ozdesPhotoU[0, e] = computeABmag(filters['g'],
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
-        ozdesPhoto[1, e], ozdesPhotoU[1, e] = computeABmag(filterCurves[bands[1]].trans, filterCurves[bands[1]].wave,
+        ozdesPhoto[1, e], ozdesPhotoU[1, e] = computeABmag(filters['r'],
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
-        ozdesPhoto[2, e], ozdesPhotoU[2, e] = computeABmag(filterCurves[bands[2]].trans, filterCurves[bands[2]].wave,
+        ozdesPhoto[2, e], ozdesPhotoU[2, e] = computeABmag(filters['i'],
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
 
@@ -280,50 +282,11 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, bands, filte
     return badData, scaling
 
 
-class filterCurve:
-    """ Creates a class to hold the transmission function for each band. """
-
-    def __init__(self):
-        self.wave = np.array([], 'float')
-        self.trans = np.array([], 'float')
-        return
-
-    def read(self, file):
-        # DES filter curves express the wavelengths in nms
-        if 'DES' in file:
-            factor = 10.
-        else:
-            factor = 1.
-        file = open(file, 'r')
-        for line in file.readlines():
-            if line[0] != '#':
-                entries = line.split()
-                self.wave = np.append(self.wave, float(entries[0]))
-                self.trans = np.append(self.trans, float(entries[1]))
-        file.close()
-        # We use Angstroms for the wavelength in the filter transmission file
-        self.wave = self.wave * factor
-        return
-
-
-def readFilterCurves(bands, filters):
-    """
-    Reads in a filter curve and stores it as the filter curve class.
-
-    """
-
-    filterCurves = {}
-    for f in bands:
-        filterCurves[f] = filterCurve()
-        filterCurves[f].read(filters[f])
-
-    return filterCurves
-
-
-def computeABmag(trans_flux, trans_wave, tmp_wave, tmp_flux, tmp_var):
+def computeABmag(filter, tmp_wave, tmp_flux, tmp_var):
     """
     Computes the AB magnitude for given transmission functions and spectrum
     `f_lambda`. Returns the magnitude and variance.
+
     """
 
     # Takes and returns variance
@@ -332,12 +295,12 @@ def computeABmag(trans_flux, trans_wave, tmp_wave, tmp_flux, tmp_var):
 
     # trans/tmp not necessarily defined over the same wavelength range
     # first determine the wavelength range over which both are defined
-    minV = min(trans_wave)
+    minV = min(filter.wavelength)
     if minV < min(tmp_wave):
         minV = min(tmp_wave)
-    maxV = max(trans_wave)
-    if maxV > max(trans_wave):
-        maxV = max(trans_wave)
+    maxV = max(filter.wavelength)
+    if maxV > max(filter.wavelength):
+        maxV = max(filter.wavelength)
 
     interp_wave = []
     tmp_flux2 = []
@@ -353,14 +316,14 @@ def computeABmag(trans_flux, trans_wave, tmp_wave, tmp_flux, tmp_var):
 
     # interpolate the transmission function onto this range
     # the transmission function is interpolated as it is generally much smoother than the spectral data
-    trans_flux2 = interp1d(trans_wave, trans_flux)(interp_wave)
+    trans_interp = interp1d(filter.wavelength, filter.transmission)(interp_wave)
 
     # And now calculate the magnitude and uncertainty
 
     c = 2.992792e18  # Angstrom/s
-    Num = np.nansum(tmp_flux2 * trans_flux2 * interp_wave)
-    Num_var = np.nansum(tmp_var2 * (trans_flux2 * interp_wave) ** 2)
-    Den = np.nansum(trans_flux2 / interp_wave)
+    Num = np.nansum(tmp_flux2 * trans_interp * interp_wave)
+    Num_var = np.nansum(tmp_var2 * (trans_interp * interp_wave) ** 2)
+    Den = np.nansum(trans_interp / interp_wave)
 
     with np.errstate(divide='raise'):
         try:
@@ -432,9 +395,11 @@ def des_photo_avg(photo, bands, numEpochs):
 
 
 def photo_from_fstars(photo, bands, numEpochs):
+    """
+    Performs an average on photometry data.
+    For now this just averages over the whole file.
 
-    """Performs an average on photometry data.
-    For now this just averages over the whole file.  """
+    """
 
     # Assumes dates are in chronological order!!!
     mags = np.zeros((3, numEpochs))
@@ -463,7 +428,6 @@ def photo_from_fstars(photo, bands, numEpochs):
 
 
 def photo_standard(photo, bands, numEpochs, uncertainty=0.01):
-
     """
     Makes the photometry arrays for sources that do not vary.
 
@@ -480,38 +444,6 @@ def photo_standard(photo, bands, numEpochs, uncertainty=0.01):
     mags[0, :], errs[0, :] = g_mags, uncertainty
     mags[1, :], errs[1, :] = r_mags, uncertainty
     mags[2, :], errs[2, :] = i_mags, uncertainty
-
-    return mags, errs
-
-
-def photo_from_fstars(photo, bands, numEpochs):
-
-    """Performs an average on photometry data.
-    For now this just averages over the whole file.  """
-
-    # Assumes dates are in chronological order!!!
-    mags = np.zeros((3, numEpochs))
-    errs = np.zeros((3, numEpochs))
-
-    g_mags = []
-    r_mags = []
-    i_mags = []
-
-    for i, band in enumerate(photo['Band']):
-        if band == bands[0]:
-            g_mags.append(photo['Mag'][i])
-        if band == bands[1]:
-            r_mags.append(photo['Mag'][i])
-        if band == bands[2]:
-            i_mags.append(photo['Mag'][i])
-    # print("g_mags", g_mags)
-
-    mags[0, :], errs[0, :] = np.mean(g_mags), np.std(g_mags)
-    mags[1, :], errs[1, :] = np.mean(r_mags), np.std(r_mags)
-    mags[2, :], errs[2, :] = np.mean(i_mags), np.std(i_mags)
-
-    # print("mags", mags)
-    # print("errs", errs)
 
     return mags, errs
 
@@ -702,7 +634,7 @@ def fit_spectra_to_coadd(fit_spectra, coadd_spectra, centers, fit_method='emcee'
     return scale_params
 
 
-def warp_spectra(scaling, scaleErr, flux, variance, wavelength, centers, plotFlag):
+def warp_spectra(scaling, scaleErr, flux, variance, wavelength, centers, plotFlag, plotTitle=''):
     """
     Fits polynomial to scale factors and estimates associated uncertainties
     with Gaussian processes. If the plotFlag variable is not False it will
@@ -737,8 +669,9 @@ def warp_spectra(scaling, scaleErr, flux, variance, wavelength, centers, plotFla
     varScale = variance * pow(scale(wavelength), 2) + sigModel ** 2
 
     if plotFlag != False:
-        figa, ax1a, ax2a = ut.makeFigDouble(plotFlag, "Wavelength ($\AA$)", "f$_\lambda$ (arbitrary units)",
+        figa, ax1a, ax2a = ut.makeFigDouble(plotTitle, "Wavelength ($\AA$)", "f$_\lambda$ (arbitrary units)",
                                       "f$_\lambda$ (10$^{-17}$ erg/s/cm$^2$/$\AA$)", [wavelength[0], wavelength[-1]])
+        # plt.title(plotTitle)
 
         ax1a.plot(wavelength, flux, color='black', label="Before Calibration")
         ax1a.legend(loc=1, frameon=False, prop={'size': 20})
@@ -747,7 +680,7 @@ def warp_spectra(scaling, scaleErr, flux, variance, wavelength, centers, plotFla
         plt.savefig(plotFlag + "_beforeAfter.png")
         plt.close(figa)
 
-        figb, ax1b, ax2b = ut.makeFigDouble(plotFlag, "Wavelength ($\AA$)", "f$_\lambda$ (10$^{-17}$ erg/s/cm$^2$/$\AA$)",
+        figb, ax1b, ax2b = ut.makeFigDouble(plotTitle, "Wavelength ($\AA$)", "f$_\lambda$ (10$^{-17}$ erg/s/cm$^2$/$\AA$)",
                                          "% Uncertainty", [wavelength[0], wavelength[-1]])
         ax1b.plot(wavelength, fluxScale / 10 ** -17, color='black')
 

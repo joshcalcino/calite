@@ -4,11 +4,13 @@ import calite as cal
 # First define where all of the data can/will be found
 
 # Define where the transmission function is stored, the bands used, and the centers of each band
-bands = [b'g', b'r', b'i']
-filters = {b'g': '../data/DES_g_y3a1.dat',
-           b'r': '../data/DES_r_y3a1.dat',
-           b'i': '../data/DES_i_y3a1.dat'}
+bands = ['g', 'r', 'i']
+
+filepaths = ['../data/DES_g_y3a1.dat', '../data/DES_r_y3a1.dat', '../data/DES_i_y3a1.dat']
+
 centers = [4730, 6420, 7840]
+
+filters = cal.specstruct.FilterCurves(filepaths, bands, centers)
 
 # Define where spectra are stored and file name format: name = spectraBase + ID + spectraEnd
 spectraBase = "../data/SVA1_COADD-"
@@ -76,5 +78,5 @@ else:
 
 
 # Calls the main function which does the calibration
-cal.specalib.calibSpec(obj_name, spectra, photo, spectraName, photoName, outDir, bands, filters, centers, plotFlag,
+cal.specalib.calibSpec(obj_name, spectra, photo, spectraName, photoName, outDir, filters, plotFlag,
                coaddFlag, interpFlag, redshift)

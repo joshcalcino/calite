@@ -252,3 +252,99 @@ class SingleSpec(object):
         # The following doesn't take into account
         #self.isbad = np.any([np.isnan(self.flux), np.isnan(self.fluxvar)], axis=0)
         self.isbad = badpix.astype(bool)
+
+
+class FilterCurve:
+    """ A class to hold the transmission function for a particular band. """
+
+    def __init__(self, filepath, band, center, units='angstrom'):
+        self.filepath = filepath
+        self.band = band
+        self.center = center
+
+        # Set the units
+        self.factor = 1
+
+        if self._read_units(units) in 'angstrom':
+            self.factor = 10
+
+        # Set the band
+        self.band = band
+
+        # Load the data
+        self.read(filepath)
+
+
+
+    def read(self, file):
+        """
+        Read in the filter curve file line by line and construct wavelength and
+        transmission arrays.
+
+        """
+
+        self.wavelength = np.array([])
+        self.transmission = np.array([])
+
+        with open(file, 'r') as file:
+            for line in file.readlines():
+                if line[0] != '#':
+                    entries = line.split()
+                    self.wavelength = np.append(self.wavelength, float(entries[0]))
+                    self.transmission = np.append(self.transmission, float(entries[1]))
+
+        # We use Angstroms for the wavelength in the filter transmission file
+        self.wavelength = self.wavelength * self.factor
+
+    def _read_units(self, units):
+        """
+        Determine the wavelength units of the filter curve.
+
+        """
+
+        try:
+            assert (type(units) == str or type(units) == bytes)
+        except AssertionError:
+            raise TypeError("units must be string or bytes type")
+
+        if units.lower() in ['angstroms', 'angstrom', 'ang', 'a']:
+            return 'angstrom'
+
+        elif units.lower() in ['nanometers', 'namometres', 'nms', 'nm', 'n']:
+            return 'nm'
+
+        else:
+            raise RuntimeWarning("Warning in FilterCurve: Cannot determine units.\n \
+                                Unit '{}' is not recognised. Assuming wavelength unit is Anstroms."\
+                                .format(units))
+            return 'angstrom'
+
+
+class FilterCurves(FilterCurve):
+    """
+    A class which consolidates multiple filters into a single object.
+
+    """
+
+    def __init__(self, filepaths, bands, centers):
+        self.filepaths = filepaths
+        self.bands = bands
+        self.centers = centers
+
+        assert len(self.filepaths) == len(self.bands), "There must be the same number of \
+                                                        bands as filepaths. "
+
+        self._curves = []
+
+        for i, filepath in enumerate(self.filepaths):
+            self._curves.append(FilterCurve(filepath, self.bands[i], center=self.centers[i]))
+
+
+    def __getitem__(self, band):
+        print(self.bands)
+        try:
+            col = self._curves.index(band)
+            return self._curves[col]
+
+        except ValueError:
+            print("{} is not a valid band".format(band))
