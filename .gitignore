@@ -1,0 +1,6 @@
+scripts/
+*.egg-info
+build/
+tests/calib_test  
+tests/plots
+!**/__pycache__/
