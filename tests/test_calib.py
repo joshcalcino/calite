@@ -4,7 +4,7 @@ import calite as cal
 # First define where all of the data can/will be found
 
 # Define where the transmission function is stored, the bands used, and the centers of each band
-bands = ['g', 'r', 'i']
+bands = np.array(['g', 'r', 'i'])
 
 filepaths = ['../data/DES_g_y3a1.dat', '../data/DES_r_y3a1.dat', '../data/DES_i_y3a1.dat']
 

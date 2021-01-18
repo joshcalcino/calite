@@ -50,6 +50,7 @@ def calibSpec(obj_name, spectra, photo, outBase, filters, plotFlag, coaddFlag,
 
     # Remove last minute trouble makers
     extensions = [e for e in extensions if e not in badData]
+
     badQC = badQC + badData
 
     # And finally warp the data
@@ -97,8 +98,8 @@ def prevent_Excess(spectra, photo, bands, interpFlag):
     # If you want to use the Gaussian process fitting you can forecast into the future/past by the number of days
     # set by the delay term.
 
-    maxPhot = np.zeros(3)
-    minPhot = np.array([100000, 100000, 100000])
+    maxPhot = np.zeros(len(bands))
+    minPhot = np.array([100000]*len(bands))
 
     # If using Gaussian process fitting you can forecast up to 28 days.  You probably want to make some plots to check
     # this isn't crazy though!
@@ -108,33 +109,20 @@ def prevent_Excess(spectra, photo, bands, interpFlag):
 
     if interpFlag == 'first':
         # Ensure we do not remove any spectra based off missing photometry
-        maxPhot = np.array([np.inf, np.inf, np.inf])
-        minPhot = np.array([-np.inf, -np.inf, -np.inf])
+        maxPhot = np.array([np.inf]*len(bands))
+        minPhot = np.array([-np.inf]*len(bands))
 
     else:
         for e in range(len(photo['Date'][:])):
-            if photo['Band'][e] == bands[0]:
-                if photo['Date'][e] > maxPhot[0]:
-                    maxPhot[0] = photo['Date'][e]
-            if photo['Band'][e] == bands[1]:
-                if photo['Date'][e] > maxPhot[1]:
-                    maxPhot[1] = photo['Date'][e]
-            if photo['Band'][e] == bands[2]:
-                if photo['Date'][e] > maxPhot[2]:
-                    maxPhot[2] = photo['Date'][e]
-        photLim = min(maxPhot) + delay
+            for b, band in enumerate(bands):
+                if photo['Band'][e] == band:
+                    if photo['Date'][e] > maxPhot[b]:
+                        maxPhot[b] = photo['Date'][e]
+                    if photo['Date'][e] < minPhot[b]:
+                        minPhot[b] = photo['Date'][e]
 
-        for e in range(len(photo['Date'][:])):
-            if photo['Band'][e] == bands[0]:
-                if photo['Date'][e] < minPhot[0]:
-                    minPhot[0] = photo['Date'][e]
-            if photo['Band'][e] == bands[1]:
-                if photo['Date'][e] < minPhot[1]:
-                    minPhot[1] = photo['Date'][e]
-            if photo['Band'][e] == bands[2]:
-                if photo['Date'][e] < minPhot[2]:
-                    minPhot[2] = photo['Date'][e]
 
+    photLim = min(maxPhot) + delay
     photLimMin = max(minPhot) - delay
     noPhotometry = []
     badQC = []
@@ -258,7 +246,7 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, filters, int
 
         # Find DES photometry
         if interpFlag == 'linear':
-            desPhoto[:, e], desPhotoU[:, e] = des_photo(photo, spectra.dates[e], bands)
+            desPhoto[:, e], desPhotoU[:, e] = des_photo(photo, spectra.dates[e], filters.bands)
 
             scaling[8, e] = desPhoto[0, e]
             scaling[10, e] = desPhoto[1, e]
@@ -435,9 +423,9 @@ def photo_standard(photo, bands, numEpochs, uncertainty=0.01):
     mags = np.zeros((3, numEpochs))
     errs = np.zeros((3, numEpochs))
 
-    g_mags = photo['gmag']
-    r_mags = photo['rmag']
-    i_mags = photo['imag']
+    g_mags = photo['g']
+    r_mags = photo['r']
+    i_mags = photo['i']
 
     mags[0, :], errs[0, :] = g_mags, uncertainty
     mags[1, :], errs[1, :] = r_mags, uncertainty
@@ -746,23 +734,23 @@ def coadd_output(obj_name, extensions, scaling, spectra, noPhotometry, badQC, ph
         if len(speclist) > 1:
             runCoadd = outlier_reject_and_coadd(obj_name, speclist)
             coaddFlux[:, index] = runCoadd.flux
-            coaddVar[:, index] = runCoadd.fluxvar
-            coaddVar[:, index] = runCoadd.fluxvar
+            coaddVar[:, index] = runCoadd.variance
+            coaddVar[:, index] = runCoadd.variance
             coaddBadPix[:,index] = runCoadd.isbad.astype('uint8')
         if len(speclist) == 1:
             coaddFlux[:, index] = speclist[0].flux
-            coaddVar[:, index] = speclist[0].fluxvar
+            coaddVar[:, index] = speclist[0].variance
             coaddBadPix[:, index] = speclist[0].isbad.astype('uint8')
         index += 1
 
     if len(speclistC) > 1:
         allCoadd = outlier_reject_and_coadd(obj_name, speclistC)
         coaddFlux[:, 0] = allCoadd.flux
-        coaddVar[:, 0] = allCoadd.fluxvar
+        coaddVar[:, 0] = allCoadd.variance
         coaddBadPix[:, 0] = allCoadd.isbad.astype('uint8')
     if len(speclistC) == 1:
         coaddFlux[:, 0] = speclistC[0].flux
-        coaddVar[:, 0] = speclistC[0].fluxvar
+        coaddVar[:, 0] = speclistC[0].variance
         coaddBadPix[:, 0] = speclistC[0].isbad.astype('uint8')
 
     mark_as_bad(coaddFlux, coaddVar)
@@ -925,11 +913,11 @@ def outlier_reject_and_coadd(obj_name, speclist):
 
     # Have at least two spectra, so let's try to reject outliers
     # At this stage, all spectra have been mapped to a common wavelength scale
-    wl = speclist[0].wl
+    wl = speclist[0].wavelength
     tgname = speclist[0].name
     # Retrieve single-object spectra and variance spectra.
     flux_2d = np.array([s.flux for s in speclist])
-    fluxvar_2d = np.array([s.fluxvar for s in speclist])
+    fluxvar_2d = np.array([s.variance for s in speclist])
     badpix_2d = np.array([s.isbad for s in speclist])
 
 

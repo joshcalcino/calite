@@ -295,12 +295,6 @@ class Photo(object):
 
 
 
-
-
-
-
-
-
 class FilterCurve:
     """
     A class to hold the transmission function for a particular band.
@@ -382,6 +376,15 @@ class FilterCurves(FilterCurve):
     def __init__(self, filepaths, bands, centers):
         self.filepaths = filepaths
         self.bands = bands
+
+        self.bands = [b'']*len(bands)
+
+        for b, band in enumerate(bands):
+            if type(band) == bytes or type(band) == np.byte:
+                self.bands[b] = band
+            else:
+                self.bands[b] = bytes(band, 'utf-8')
+
         self.centers = centers
 
         # Sanity check to make sure that len(bands) is the same as len(filepaths)
@@ -404,10 +407,12 @@ class FilterCurves(FilterCurve):
              `g_band = filtercurve['g']`
 
         """
+        if type(band) == str:
+            band = bytes(band, 'utf-8')
 
         try:
-            col = self._curves.index(band)
+            col = self.bands.index(band)
             return self._curves[col]
 
         except ValueError:
-            print("{} is not a valid band".format(band))
+            raise ValueError("{} is not a valid band in class FilterCurves".format(band))
