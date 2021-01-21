@@ -59,14 +59,12 @@ class Spectra(object):
         assert filepath != None, "No file name is specified."
 
         if not os.path.exists(filepath):
-            print("Error: Cannot locate spectra file at {}".format(filepath))
-            raise FileNotFoundError
+            raise FileNotFoundError("Cannot locate spectra file at {}".format(filepath))
 
         try:
             data = fits.open(filepath)
         except IOError:
-            print("Error loading file {0}".format(filepath))
-            raise IOError
+            raise IOError("Error loading file {0}".format(filepath))
 
         return data
 
@@ -88,8 +86,9 @@ class SpectrumCoadd(Spectra):
         self.data = self.load_data(filepath)
 
         # Set other attributes
-        self.combined = self.data[0]
+        self.combinedFlux = self.data[0]
         self.combinedVariance = self.data[1]
+        self.combinedPixels = self.data[2]
         self._wavelength = None
         self._flux = None
         self._variance = None
@@ -98,10 +97,20 @@ class SpectrumCoadd(Spectra):
         self._dates = None
         self._runs = None
         self.numEpochs = int((np.size(self.data) - 3) / 3)
-        self.redshift = self.combined.header['z']
-        self.RA = self.combined.header['RA']
-        self.DEC = self.combined.header['DEC']
-        self.field = self.combined.header['FIELD']
+        print(self.numEpochs)
+        self.redshift = self.combinedFlux.header['z']
+        self.RA = self.combinedFlux.header['RA']
+        self.DEC = self.combinedFlux.header['DEC']
+        self.field = self.combinedFlux.header['FIELD']
+        self.n_pix = self.combinedFlux.header['NAXIS1']
+        self.cdelt1 = self.combinedFlux.header['cdelt1']  # Wavelength interval between subsequent pixels
+        self.crpix1 = self.combinedFlux.header['crpix1']
+        self.crval1 = self.combinedFlux.header['crval1']
+        self.len_wavelength = len(self.wavelength)
+
+        # self.fluxCoadd = self.combinedFlux.data
+        # self.varianceCoadd = self.combinedVariance.data
+        self.badpixCoadd = self.combinedPixels.data
         self.len_wavelength = len(self.wavelength)
 
     @property
