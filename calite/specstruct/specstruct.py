@@ -69,6 +69,18 @@ class Spectra(object):
         return data
 
 
+class SpectraLite(object):
+    """
+    A spectra class which contains all of the attributes necessary to run
+    calite.
+
+    """
+    def __init__(self, filepath=None, flux=None, wavelength=None):
+        self.filepath = filepath
+        self.flux = flux
+        self.wavelength = wavelength
+
+
 class SpectrumCoadd(Spectra):
     """
     Spectrum class for latest version of the OzDES pipeline. This reads in
@@ -77,7 +89,7 @@ class SpectrumCoadd(Spectra):
 
     """
 
-    def __init__(self, filepath):
+    def __init__(self, filepath=None):
         super(Spectra, self).__init__()
 
         self.filepath = filepath
@@ -116,14 +128,14 @@ class SpectrumCoadd(Spectra):
     @property
     def fluxCoadd(self):
         if getattr(self, '_fluxCoadd', None) is None:
-            self._fluxCoadd = np.zeros(self.len_wavelength, dtype=float)
+            self._fluxCoadd = np.zeros(self.len_wavelength, dtype=np.float_)
             self._fluxCoadd[:] = self.data[0].data
         return self._fluxCoadd
 
     @property
     def varianceCoadd(self):
         if getattr(self, '_varianceCoadd', None) is None:
-            self._varianceCoadd = np.zeros(self.len_wavelength, dtype=float)
+            self._varianceCoadd = np.zeros(self.len_wavelength, dtype=np.float_)
             self._varianceCoadd[:] = self.data[1].data
         return self._varianceCoadd
 
@@ -386,13 +398,13 @@ class FilterCurves(FilterCurve):
         self.filepaths = filepaths
         self.bands = bands
 
-        self.bands = [b'']*len(bands)
+        self.bands = ['']*len(bands)
 
         for b, band in enumerate(bands):
             if type(band) == bytes or type(band) == np.byte:
-                self.bands[b] = band
+                self.bands[b] = str(band, encoding='utf-8')
             else:
-                self.bands[b] = bytes(band, 'utf-8')
+                self.bands[b] = band
 
         self.centers = centers
 
@@ -416,8 +428,8 @@ class FilterCurves(FilterCurve):
              `g_band = filtercurve['g']`
 
         """
-        if type(band) == str:
-            band = bytes(band, 'utf-8')
+        if type(band) == bytes:
+            band = str(band, encoding='utf-8')
 
         try:
             col = self.bands.index(band)

@@ -1,16 +1,16 @@
 import numpy as np
-from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
+from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.spatial.distance import pdist, cdist, squareform
 from scipy.optimize import least_squares
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import matplotlib.pyplot as plt
 import sys
 import os
-import emcee
-from chainconsumer import ChainConsumer
 import calite.utils as ut
 from .. import specio
 from ..specstruct import SpectrumCoadd, Spectrumv18, SingleSpec
+from . import calibutil as cu
+from . import specfit as sf
 
 
 def calibSpec(obj_name, spectra, photo, outBase, filters, plotFlag, coaddFlag,
@@ -84,7 +84,7 @@ def calibSpec(obj_name, spectra, photo, outBase, filters, plotFlag, coaddFlag,
     return
 
 
-def calibSpec_from_fit(obj_name, spectra, coadd_spectra, photo, outBase, filters, plotFlag, coaddFlag, redshift, **kwargs):
+def calibSpec_from_coadd_fit(obj_name, spectra, coadd_spectra, photo, outBase, filters, plotFlag, coaddFlag, redshift, **kwargs):
     """
     This function will determine extensions which can be calibrated,
     fit the scale factors to a previously coadded spectra, warping function, and output a new fits file
@@ -155,6 +155,81 @@ def calibSpec_from_fit(obj_name, spectra, coadd_spectra, photo, outBase, filters
 
     return
 
+
+
+def calibSpec_from_template_fit(obj_name, spectra, photo, outBase, filters, plotFlag, coaddFlag, redshift, **kwargs):
+    """
+    This function will determine extensions which can be calibrated,
+    fit the scale factors to a previously coadded spectra, warping function, and output a new fits file
+    with the scaled spectra.
+
+    Parameters
+    ----------
+    obj_name : str
+        The name of the object.
+
+    Returns
+    -------
+
+    """
+
+    if plotFlag != False:
+        plotName = os.path.join(plotFlag, obj_name)
+
+        # Build the path to the plot directory if it does not exist
+        filepath = os.path.dirname(plotName)
+        if not os.path.exists(filepath):
+            ut.build_path(filepath)
+
+    else:
+        plotName = False
+
+    interpFlag = None
+
+    # First we decide which extensions are worth scaling
+    extensions, badQC = get_badQC(spectra)
+
+    # Find which Pickles spectra best matches this source
+    template_spectra = cu.get_best_spectra_template(photo, filters)
+
+
+    # Then we calculate the scale factors
+    badData, scaling = scaling_matrix_from_fit(spectra, template_spectra, extensions, badQC, photo, filters, plotFlag, **kwargs)
+
+    # Remove last minute trouble makers
+    extensions = [e for e in extensions if e not in badData]
+
+    badQC = badQC + badData
+
+    # And finally warp the data
+    for s in extensions:
+        if plotFlag != False:
+            plotName = os.path.join(plotFlag, obj_name + "_" + str(s))
+            # plotName = plotFlag + obj_name + "_" + str(s)
+        else:
+            plotName = False
+
+        title = '{} {}'.format(spectra.data[s*3].header['RA'], spectra.data[s*3].header['DEC'])
+
+        # scale the spectra
+        spectra.flux[:, s], spectra.variance[:, s] =\
+                    warp_spectra(scaling[0:3, s], scaling[3:6, s],
+                                 spectra.flux[:, s], spectra.variance[:, s],
+                                 spectra.wavelength, filters.centers, plotName, plotTitle=title)
+
+    if coaddFlag == False:
+        specio.create_output_single(obj_name, extensions, scaling, spectra,
+                                    noPhotometry, badQC, photo.name,
+                                    outBase, redshift)
+
+    elif coaddFlag in ['Run', 'Date', 'All']:
+        coadd_output(obj_name, extensions, scaling, spectra,
+                            noPhotometry, badQC, photo.name,
+                            outBase, plotFlag, coaddFlag, redshift)
+    else:
+        print("What do you want me to do with this data? Please specify output type.")
+
+    return
 
 
 def prevent_Excess(spectra, photo, bands, interpFlag):
@@ -318,13 +393,13 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, filters, int
     for e in extensions:
         # Find OzDES photometry
 
-        ozdesPhoto[0, e], ozdesPhotoU[0, e] = computeABmag(filters['g'],
+        ozdesPhoto[0, e], ozdesPhotoU[0, e] = cu.computeABmag(filters['g'],
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
-        ozdesPhoto[1, e], ozdesPhotoU[1, e] = computeABmag(filters['r'],
+        ozdesPhoto[1, e], ozdesPhotoU[1, e] = cu.computeABmag(filters['r'],
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
-        ozdesPhoto[2, e], ozdesPhotoU[2, e] = computeABmag(filters['i'],
+        ozdesPhoto[2, e], ozdesPhotoU[2, e] = cu.computeABmag(filters['i'],
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
 
@@ -408,20 +483,20 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
     for e in extensions:
         # Find OzDES photometry
 
-        ozdesPhoto[0, e], ozdesPhotoU[0, e] = computeABmag(filters['g'],
+        ozdesPhoto[0, e], ozdesPhotoU[0, e] = cu.computeABmag(filters['g'],
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
-        ozdesPhoto[1, e], ozdesPhotoU[1, e] = computeABmag(filters['r'],
+        ozdesPhoto[1, e], ozdesPhotoU[1, e] = cu.computeABmag(filters['r'],
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
-        ozdesPhoto[2, e], ozdesPhotoU[2, e] = computeABmag(filters['i'],
+        ozdesPhoto[2, e], ozdesPhotoU[2, e] = cu.computeABmag(filters['i'],
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
 
         if np.isnan(ozdesPhoto[:, e]).any() == True:
             badData.append(e)
 
-        scaling[:6, e] = fit_spectra_to_coadd(spectra, coadd_spectra, filters.centers, fit_method='emcee', index=e, **kwargs)
+        scaling[:6, e] = sf.fit_spectra_to_coadd(spectra, coadd_spectra, filters, fit_method='emcee', index=e, **kwargs)
 
         mock_photo, mock_photo_var = mock_photo_from_fit(scaling[:3, e], scaling[3:6], ozdesPhoto)
 
@@ -455,60 +530,6 @@ def scale_factors(mag_diff, mag_diff_var):
     scale_factor_sigma = mag_diff_var * (scale_factor * 0.4 * 2.3) ** 2   # ln(10) ~ 2.3
 
     return scale_factor, scale_factor_sigma
-
-
-def computeABmag(filter, tmp_wave, tmp_flux, tmp_var):
-    """
-    Computes the AB magnitude for given transmission functions and spectrum
-    `f_lambda`. Returns the magnitude and variance.
-
-    """
-
-    # Takes and returns variance
-    # trans_ : transmission function data
-    # tmp_ : spectral data
-
-    # trans/tmp not necessarily defined over the same wavelength range
-    # first determine the wavelength range over which both are defined
-    minV = min(filter.wavelength)
-    if minV < min(tmp_wave):
-        minV = min(tmp_wave)
-    maxV = max(filter.wavelength)
-    if maxV > max(filter.wavelength):
-        maxV = max(filter.wavelength)
-
-    interp_wave = []
-    tmp_flux2 = []
-    tmp_var2 = []
-
-    # Make new vectors for the flux just using that range (assuming spectral binning)
-
-    for i in range(len(tmp_wave)):
-        if minV < tmp_wave[i] < maxV:
-            interp_wave.append(tmp_wave[i])
-            tmp_flux2.append(tmp_flux[i])
-            tmp_var2.append(tmp_var[i])
-
-    # interpolate the transmission function onto this range
-    # the transmission function is interpolated as it is generally much smoother than the spectral data
-    trans_interp = interp1d(filter.wavelength, filter.transmission)(interp_wave)
-
-    # And now calculate the magnitude and uncertainty
-
-    c = 2.992792e18  # Angstrom/s
-    Num = np.nansum(tmp_flux2 * trans_interp * interp_wave)
-    Num_var = np.nansum(tmp_var2 * (trans_interp * interp_wave) ** 2)
-    Den = np.nansum(trans_interp / interp_wave)
-
-    with np.errstate(divide='raise'):
-        try:
-            magAB = -2.5 * np.log10(Num / Den / c) - 48.60
-            magABvar = 1.17882 * Num_var / (Num ** 2)
-        except FloatingPointError:
-            magAB = 99.
-            magABvar = 99.
-
-    return magAB, magABvar
 
 
 def des_photo(photo, spectral_mjd, bands):
@@ -672,7 +693,7 @@ def des_photo_BBK(photo, dates, bands, numEpochs, plotFlag):
             y_predAll = y_predAll.flatten()
             fig, ax1 = ut.makeFigSingle(plotFlag + bname[b], 'Date', 'Mag', [dates[0], dates[-1]])
 
-            # I want to plot lines where the observations take place - only plot one per night though
+            # I want to plot lines where the observations take place - only plot one per night though'fit_function
             dateCull = dates.astype(int)
             dateCull = np.unique(dateCull)
             for e in range(len(dateCull)):
@@ -725,119 +746,6 @@ def scale_factors(mag_diff, mag_diff_var):
     scale_factor_sigma = mag_diff_var * (scale_factor * 0.4 * 2.3) ** 2   # ln(10) ~ 2.3
 
     return scale_factor, scale_factor_sigma
-
-
-def warp_uncalib_spectra(scaling, flux, centers, wavelength):
-    scale = InterpolatedUnivariateSpline(centers, scaling, k=2)
-    return flux * scale(wavelength)
-
-
-def uncalib_spectra_residuals(scaling, flux, coadd_flux, centers, wavelength):
-    uncalib_spectra_scaled = warp_uncalib_spectra(scaling, flux, centers, wavelength)
-    residuals = coadd_flux - uncalib_spectra_scaled
-    return residuals
-
-
-def spectra_log_likelihood(scaling, flux, coadd_flux, coadd_variance, centers, wavelength, **kwargs):
-    """
-    Get the log likelihood
-    """
-    residuals = uncalib_spectra_residuals(scaling, flux, coadd_flux, centers, wavelength)
-    coadd_variance=0.1
-    chi2 = np.nansum(residuals**2/coadd_variance) # Note variance is sigma^2
-    return -0.5 * chi2
-
-
-def fit_spectra_to_coadd(fit_spectra, coadd_spectra, centers, fit_method='emcee', index=None, **kwargs):
-    """
-    Fit a spectra to co-added spectra and determine uncertainties.
-
-    Assumes that fit_spectra and coadd_spectra have the same wavelengths (x axis)
-
-    Parameters
-    ----------
-    fit_spectra : Spectrumv18 object
-        The spectra to be fitted.
-    coadd_spectra : SpectrumCoadd object
-        The co-added spectra that fit_spectra will be fitted to
-    fit_method : str, optional
-        Specify which method to fit with. Current supports emcee.
-    **kwargs : dict keyword arguments, optional\
-        Additional arguments used for interacting with the sampling method.
-
-    Returns
-    -------
-    scale_params : array
-        The best fit parameters for the scaling function.
-        ``scale_params[0:3]`` is the best fit for g, r, i, respectively.
-        ``scale_params[3:6]`` is the uncertainties for g, r, i, respectively.
-
-    """
-
-    if fit_method == 'emcee':
-
-        initial_guess = [1]*len(centers)
-
-        # print(fit_spectra.flux[:, index])
-        # plt.plot(fit_spectra.wavelength, fit_spectra.flux[:, index])
-        # plt.show()
-
-        args = [fit_spectra.flux[:, index], coadd_spectra.combinedFlux.data, coadd_spectra.combinedVariance.data,
-                    centers, fit_spectra.wavelength]
-
-        ndim = len(initial_guess)
-
-
-        # Obtain relevant kwargs for the sampler
-        if 'nwalkers' in kwargs.keys():
-            nwalkers = kwargs['nwalkers']
-        else:
-            nwalkers = 24
-
-        if 'nsteps' in kwargs.keys():
-            nsteps = kwargs['nwalkers']
-        else:
-            nsteps = 500
-
-        if 'burnin' in kwargs.keys():
-            burnin = kwargs['burnin']
-        else:
-            burnin = 200
-
-        if 'progress' in kwargs.keys():
-            progress = kwargs['progress']
-        else:
-            progress = True
-
-        p0 = np.random.randn(nwalkers, ndim)
-
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, spectra_log_likelihood, args=args)
-        sampler.run_mcmc(p0, burnin+nsteps, progress=progress)
-
-        c = ChainConsumer()
-        c.configure(usetex=False)
-        c.plotter.restore_rc_params()
-
-        chains = sampler.get_chain()
-        samples = sampler.chain[:, burnin:burnin+nsteps]
-        samples = samples.reshape(-1, samples.shape[-1])
-
-        c.add_chain(samples)
-
-        # c.plotter.plot_walks()
-        # c.plotter.plot()
-        # plt.show()
-        summary = c.analysis.get_summary()
-        print(summary)
-
-        max_likelihoods = [summary[key][1] for key in summary.keys()]
-        print(max_likelihoods)
-
-        plt.plot(fit_spectra.wavelength, coadd_spectra.fluxCoadd)
-        plt.show()
-
-    return scale_params
-
 
 def warp_spectra(scaling, scaleErr, flux, variance, wavelength, centers, plotFlag, plotTitle=''):
     """
@@ -928,6 +836,9 @@ def coadd_output(obj_name, extensions, scaling, spectra, noPhotometry, badQC, ph
             if int(spectra.dates[e]) not in coaddOver:
                 coaddOver.append(int(spectra.dates[e]))
 
+        if coaddFlag == 'All':
+            coaddOver.append(e)
+
 
     coaddFlux = np.zeros((spectra.len_wavelength, len(coaddOver) + 1))
     coaddVar = np.zeros((spectra.len_wavelength, len(coaddOver) + 1))
@@ -944,6 +855,8 @@ def coadd_output(obj_name, extensions, scaling, spectra, noPhotometry, badQC, ph
                 opt = spectra.run[e]
             if coaddFlag == 'Date':
                 opt = int(spectra.dates[e])
+            if coaddFlag == 'All':
+                opt = c
             if opt == c:
                 speclist.append(SingleSpec(obj_name, spectra.wavelength, spectra.flux[:,e], spectra.variance[:,e],
                                            spectra.badpix[:,e]))
@@ -975,8 +888,6 @@ def coadd_output(obj_name, extensions, scaling, spectra, noPhotometry, badQC, ph
         coaddBadPix[:, 0] = speclistC[0].isbad.astype('uint8')
 
     mark_as_bad(coaddFlux, coaddVar)
-
-
 
     specio.create_output_coadd(obj_name, coaddOver, coaddFlux, coaddVar, coaddBadPix, extensions, scaling, spectra, redshift,
                         badQC, noPhotometry, photoName, outBase, coaddFlag)
