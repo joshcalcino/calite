@@ -2,8 +2,10 @@ import numpy as np
 import emcee
 from chainconsumer import ChainConsumer
 from scipy.interpolate import interp1d
-from .. import specstruct as st
+import calite.specstruct as st
+from . import calibutil as cu
 import matplotlib.pyplot as plt
+from scipy.interpolate import InterpolatedUnivariateSpline
 
 
 def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emcee', index=None, **kwargs):
@@ -42,12 +44,10 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         if isinstance(template_spectra, st.SpectraLite):
             spectra_flux_interp = interp1d(template_spectra.wavelength, template_spectra.flux)
             spectra_flux = spectra_flux_interp(fit_spectra.wavelength)
-            spectra_variance = np.zeros(len(fit_spectra.wavelength))
 
         elif isinstance(template_spectra, st.SpectrumCoadd):
             spectra_flux = template_spectra.fluxCoadd*1e17
             spectra_variance = template_spectra.varianceCoadd
-
 
         initial_guess = [1]*order
 
@@ -65,12 +65,12 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         if 'nsteps' in kwargs.keys():
             nsteps = kwargs['nwalkers']
         else:
-            nsteps = 2000
+            nsteps = 1000
 
         if 'burnin' in kwargs.keys():
             burnin = kwargs['burnin']
         else:
-            burnin = 4000
+            burnin = 500
 
         if 'progress' in kwargs.keys():
             progress = kwargs['progress']
@@ -88,8 +88,8 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
                 coadd_mags = np.empty(len(filters.bands))
                 coadd_vars = np.empty(len(filters.bands))
 
-                for i, filter in enumerate(filters.bands):
-                    coadd_mags[i], coadd_vars[i] = cu.computeABmag(filters[filter], fit_spectra.wavelength,
+                for i, band in enumerate(filters.bands):
+                    coadd_mags[i], coadd_vars[i] = cu.computeABmag(filters[band], fit_spectra.wavelength,
                                                 spectra_flux,
                                                 spectra_variance)
 
@@ -100,11 +100,11 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
             args = [fit_spectra.flux[:, index], spectra_flux, fit_spectra_errors,
                         filters.centers, fit_spectra.wavelength]
 
-        plt.plot(fit_spectra.wavelength, fit_spectra.flux[:, index])
-        plt.plot(fit_spectra.wavelength, spectra_flux)
-        plt.plot(fit_spectra.wavelength, fit_spectra.variance[:, index])
-        plt.plot(fit_spectra.wavelength, fit_spectra_errors)
-        plt.show()
+        # plt.plot(fit_spectra.wavelength, fit_spectra.flux[:, index])
+        # plt.plot(fit_spectra.wavelength, spectra_flux)
+        # plt.plot(fit_spectra.wavelength, fit_spectra.variance[:, index])
+        # plt.plot(fit_spectra.wavelength, fit_spectra_errors)
+        # plt.show()
 
         p0 = np.random.randn(nwalkers, ndim)
 
@@ -121,27 +121,61 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
 
         c.add_chain(samples)
 
-        c.plotter.plot_walks()
-        c.plotter.plot()
-        plt.show()
+        # c.plotter.plot_walks()
+        # c.plotter.plot()
+        # plt.show()
 
         summary = c.analysis.get_summary()
-        print(summary)
+        # print(summary)
 
         max_likelihoods = [summary[key][1] for key in summary.keys()]
-        print(max_likelihoods)
+        # print(max_likelihoods)
 
         if 'order' in kwargs.keys():
             best_fit = warp_uncalib_spectra_pol(max_likelihoods, fit_spectra.flux[:, index], fit_spectra.wavelength)
         else:
             best_fit = warp_uncalib_spectra(max_likelihoods, fit_spectra.flux[:, index], filters.centers, fit_spectra.wavelength)
 
-        print("spectra flux", spectra_flux)
-        print("best fit", best_fit)
 
-        plt.plot(fit_spectra.wavelength, spectra_flux)
-        plt.plot(fit_spectra.wavelength, best_fit)
-        plt.show()
+        # plt.plot(fit_spectra.wavelength, spectra_flux)
+        # plt.plot(fit_spectra.wavelength, best_fit)
+        # plt.show()
+
+        photo = np.zeros(3)
+        photoU = np.zeros(3)
+
+        nchain_samples = 500
+        # print(samples)
+
+        ids = range(nchain_samples)
+
+        rand_ids = np.random.choice(ids, size=nchain_samples)
+        rand_samples = samples[rand_ids]
+        # print()
+        print(rand_samples)
+
+        tmp_samples = np.zeros(nchain_samples)
+
+        for i, band in enumerate(filters.bands):
+            photo[i] = cu.compute_mag_fast(filters[band], fit_spectra.wavelength, best_fit)
+
+            for j in range(nchain_samples):
+                tmp_flux = warp_uncalib_spectra_pol(rand_samples[j], fit_spectra.flux[:, index], fit_spectra.wavelength)
+                # plt.plot(fit_spectra.wavelength, tmp_flux)
+                # plt.show()
+                tmp_samples[j] = cu.compute_mag_fast(filters[band], fit_spectra.wavelength, tmp_flux)
+                # print(tmp_samples[j])
+
+            # plt.hist(tmp_samples, bins=20)
+            # plt.show()
+
+            photoU[i] = np.std(tmp_samples)
+
+        scale_params = np.zeros(6)
+
+        scale_params[0:3] = photo
+        scale_params[3:6] = photoU
+        print(scale_params)
 
     return scale_params
 

@@ -467,10 +467,10 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
 
 
     ozdesPhoto = np.zeros((3, spectra.numEpochs))
-    desPhoto = np.zeros((3, spectra.numEpochs))
+    mock_photo = np.zeros((3, spectra.numEpochs))
 
     ozdesPhotoU = np.zeros((3, spectra.numEpochs))
-    desPhotoU = np.zeros((3, spectra.numEpochs))
+    mock_photo_var = np.zeros((3, spectra.numEpochs))
 
 
     badData = []
@@ -488,12 +488,17 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
 
+        print("Ozdesphoto", ozdesPhoto)
+        print("OzdesphotoU", ozdesPhotoU)
+
         if np.isnan(ozdesPhoto[:, e]).any() == True:
             badData.append(e)
 
         scaling[:6, e] = sf.fit_spectra_to_coadd(spectra, coadd_spectra, filters, fit_method='emcee', index=e, **kwargs)
 
-        mock_photo, mock_photo_var = mock_photo_from_fit(scaling[:3, e], scaling[3:6], ozdesPhoto)
+        print(scaling[:3, e], scaling[3:6, e], ozdesPhoto[:, e])
+
+        mock_photo[:, e], mock_photo_var[:, e] = mock_photo_from_fit(scaling[:3, e], scaling[3:6, e], ozdesPhoto[:, e])
 
         scaling[8, e] = mock_photo[0, e]
         scaling[10, e] = mock_photo[1, e]
@@ -506,7 +511,7 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
     return badData, scaling
 
 
-def mock_photo_from_fit(scale_factor, scale_factor_sigma, ozdes_photo, ozdes_photo_err):
+def mock_photo_from_fit(scale_factor, scale_factor_sigma, ozdes_photo):
     flux_ratio = 1/scale_factor
     mag_diff = np.log10(flux_ratio)/0.4
     mag_mock = mag_diff + ozdes_photo
