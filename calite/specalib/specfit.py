@@ -48,9 +48,12 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
             spectra_flux = template_spectra.fluxCoadd*1e17
             spectra_variance = template_spectra.varianceCoadd
 
+
         initial_guess = [1]*order
 
         ndim = order
+
+        fit_spectra_errors = get_spectra_errors(fit_spectra.flux[:, index])
 
 
         # Obtain relevant kwargs for the sampler
@@ -77,7 +80,7 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         if 'fit_function' in kwargs.keys():
             if kwargs['fit_function'] == 'full':
                 log_likelihood = spectra_log_likelihood
-                args = [fit_spectra.flux[:, index], spectra_flux, spectra_variance,
+                args = [fit_spectra.flux[:, index], spectra_flux, fit_spectra_errors,
                             filters.centers, fit_spectra.wavelength]
 
             elif kwargs['fit_function'] == 'partial':
@@ -94,9 +97,14 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
 
         else:
             log_likelihood = spectra_log_likelihood
-            args = [fit_spectra.flux[:, index], spectra_flux, spectra_variance,
+            args = [fit_spectra.flux[:, index], spectra_flux, fit_spectra_errors,
                         filters.centers, fit_spectra.wavelength]
 
+        plt.plot(fit_spectra.wavelength, fit_spectra.flux[:, index])
+        plt.plot(fit_spectra.wavelength, spectra_flux)
+        plt.plot(fit_spectra.wavelength, fit_spectra.variance[:, index])
+        plt.plot(fit_spectra.wavelength, fit_spectra_errors)
+        plt.show()
 
         p0 = np.random.randn(nwalkers, ndim)
 
@@ -112,6 +120,10 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         samples = samples.reshape(-1, samples.shape[-1])
 
         c.add_chain(samples)
+
+        c.plotter.plot_walks()
+        c.plotter.plot()
+        plt.show()
 
         summary = c.analysis.get_summary()
         print(summary)
@@ -165,23 +177,46 @@ def uncalib_partial_spectra_residuals(scaling, flux, coadd_mags, filters, wavele
     return residuals
 
 
-def spectra_log_likelihood(scaling, flux, coadd_flux, coadd_variance, centers, wavelength, **kwargs):
+def spectra_log_likelihood(scaling, flux, coadd_flux, errors, centers, wavelength, **kwargs):
     """
     Get the log likelihood
     """
     residuals = uncalib_spectra_residuals(scaling, flux, coadd_flux, centers, wavelength, **kwargs)
-    coadd_variance=1e-2
-    chi2 = np.nansum(residuals**2/coadd_variance) # Note variance is sigma^2
-    # print(chi2)
+    chi2 = np.nansum(residuals**2/errors**2) # Note variance is sigma^2
     return -0.5 * chi2
 
 
-def partial_spectra_log_likelihood(scaling, flux, coadd_mags, coadd_variance, filters, wavelength, **kwargs):
+def partial_spectra_log_likelihood(scaling, flux, coadd_mags, errors, filters, wavelength, **kwargs):
     """
     Get the log likelihood
     """
     residuals = uncalib_partial_spectra_residuals(scaling, flux, coadd_mags, filters, wavelength)
-    coadd_variance=0.2
-    chi2 = np.nansum(residuals**2/coadd_variance) # Note variance is sigma^2
-    # print(chi2)
+    chi2 = np.nansum(residuals**2/errors**2) # Note variance is sigma^2
     return -0.5 * chi2
+
+
+def get_spectra_errors(flux, nbins=25):
+    """ Compute the uncertainties in a given spectra assuming the uncertainties
+    can be derived from the scatter in the spectra """
+
+    spectra_len = len(flux)
+
+    nan_mask = np.array([np.isnan(f) for f in flux])
+    nan_free_spectra = flux[~nan_mask]
+
+    chunks = np.array_split(nan_free_spectra, nbins)
+
+    std_err = np.zeros(len(nan_free_spectra))
+
+    spectra_error = np.zeros(spectra_len)
+    spectra_error[nan_mask] = np.nan
+
+    counter = 0
+
+    for chunk in chunks:
+        std_err[counter:counter+len(chunk)] = np.std(chunk)
+        counter += len(chunk)
+
+    spectra_error[~nan_mask] = [std_err[i] for i in range(len(std_err))]
+
+    return spectra_error

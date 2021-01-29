@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import sys
 import os
 import calite.utils as ut
-from .. import specio
-from ..specstruct import SpectrumCoadd, Spectrumv18, SingleSpec
+import calite.specio as sio
+import calite.specstruct as st
 from . import calibutil as cu
 from . import specfit as sf
 
@@ -70,7 +70,7 @@ def calibSpec(obj_name, spectra, photo, outBase, filters, plotFlag, coaddFlag,
                                  spectra.wavelength, filters.centers, plotName, plotTitle=title)
 
     if coaddFlag == False:
-        specio.create_output_single(obj_name, extensions, scaling, spectra,
+        sio.create_output_single(obj_name, extensions, scaling, spectra,
                                     noPhotometry, badQC, photo.name,
                                     outBase, redshift)
 
@@ -142,7 +142,7 @@ def calibSpec_from_coadd_fit(obj_name, spectra, coadd_spectra, photo, outBase, f
                                  spectra.wavelength, filters.centers, plotName, plotTitle=title)
 
     if coaddFlag == False:
-        specio.create_output_single(obj_name, extensions, scaling, spectra,
+        sio.create_output_single(obj_name, extensions, scaling, spectra,
                                     noPhotometry, badQC, photo.name,
                                     outBase, redshift)
 
@@ -218,7 +218,7 @@ def calibSpec_from_template_fit(obj_name, spectra, photo, outBase, filters, plot
                                  spectra.wavelength, filters.centers, plotName, plotTitle=title)
 
     if coaddFlag == False:
-        specio.create_output_single(obj_name, extensions, scaling, spectra,
+        sio.create_output_single(obj_name, extensions, scaling, spectra,
                                     noPhotometry, badQC, photo.name,
                                     outBase, redshift)
 
@@ -474,11 +474,6 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
 
 
     badData = []
-    #
-    # for e in extensions:
-    #     print(spectra.flux[:, e])
-    #     plt.plot(spectra.wavelength, spectra.flux[:, e])
-    #     plt.show()
 
     for e in extensions:
         # Find OzDES photometry
@@ -858,9 +853,9 @@ def coadd_output(obj_name, extensions, scaling, spectra, noPhotometry, badQC, ph
             if coaddFlag == 'All':
                 opt = c
             if opt == c:
-                speclist.append(SingleSpec(obj_name, spectra.wavelength, spectra.flux[:,e], spectra.variance[:,e],
+                speclist.append(st.SingleSpec(obj_name, spectra.wavelength, spectra.flux[:,e], spectra.variance[:,e],
                                            spectra.badpix[:,e]))
-                speclistC.append(SingleSpec(obj_name, spectra.wavelength, spectra.flux[:,e], spectra.variance[:,e],
+                speclistC.append(st.SingleSpec(obj_name, spectra.wavelength, spectra.flux[:,e], spectra.variance[:,e],
                                             spectra.badpix[:,e]))
 
         if len(speclist) > 1:
@@ -889,7 +884,7 @@ def coadd_output(obj_name, extensions, scaling, spectra, noPhotometry, badQC, ph
 
     mark_as_bad(coaddFlux, coaddVar)
 
-    specio.create_output_coadd(obj_name, coaddOver, coaddFlux, coaddVar, coaddBadPix, extensions, scaling, spectra, redshift,
+    sio.create_output_coadd(obj_name, coaddOver, coaddFlux, coaddVar, coaddBadPix, extensions, scaling, spectra, redshift,
                         badQC, noPhotometry, photoName, outBase, coaddFlag)
 
 
@@ -1119,4 +1114,4 @@ def outlier_reject_and_coadd(obj_name, speclist):
     coaddfluxvar[badpix_coadd] = np.nan
 
     # Return the coadded spectrum in a SingleSpectrum object
-    return SingleSpec(obj_name, wl, coaddflux, coaddfluxvar, badpix_coadd)
+    return st.SingleSpec(obj_name, wl, coaddflux, coaddfluxvar, badpix_coadd)
