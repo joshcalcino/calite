@@ -97,8 +97,8 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         sampler.run_mcmc(p0, burnin+nsteps, progress=progress)
 
         c = ChainConsumer()
-        c.configure(usetex=False)
-        c.plotter.restore_rc_params()
+        # c.configure(usetex=False)
+        # c.plotter.restore_rc_params()
 
         chains = sampler.get_chain()
         samples = sampler.chain[:, burnin:burnin+nsteps]

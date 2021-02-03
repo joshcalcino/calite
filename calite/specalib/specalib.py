@@ -160,8 +160,7 @@ def calibSpec_from_coadd_fit(obj_name, spectra, coadd_spectra, photo, outBase, f
     return
 
 
-
-def calibSpec_from_template_fit(obj_name, spectra, photo, outBase, filters, plotFlag, coaddFlag, redshift, **kwargs):
+def calib_star_from_template_fit(obj_name, spectra, photo, outBase, filters, plotFlag, coaddFlag, redshift, **kwargs):
     """
     This function will determine extensions which can be calibrated,
     fit the scale factors to a previously coadded spectra, warping function, and output a new fits file
@@ -222,11 +221,13 @@ def calibSpec_from_template_fit(obj_name, spectra, photo, outBase, filters, plot
                                  spectra.wavelength, filters.centers, plotName, plotTitle=title)
 
     if coaddFlag == False:
+        outName = outBase + obj_name + "_fitscaled.fits"
         sio.create_output_single(obj_name, extensions, scaling, spectra,
                                     noPhotometry, badQC, photo.name,
                                     outBase, redshift)
 
     elif coaddFlag in ['Run', 'Date', 'All']:
+        outName = outBase + obj_name + "_fitscaled_" + coaddFlag + ".fits"
         coadd_output(obj_name, extensions, scaling, spectra,
                             noPhotometry, badQC, photo.name,
                             outBase, plotFlag, coaddFlag, redshift)
