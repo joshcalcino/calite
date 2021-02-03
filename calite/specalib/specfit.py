@@ -73,7 +73,7 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
             nwalkers = 24
 
         if 'nsteps' in kwargs.keys():
-            nsteps = kwargs['nwalkers']
+            nsteps = kwargs['nsteps']
         else:
             nsteps = 1000*(1+order)
 
