@@ -154,7 +154,7 @@ class Spectrumv18(Spectra):
     pipeline.
 
     """
-    def __init__(self, filepath):
+    def __init__(self, filepath, obj_name=None):
         super(Spectra, self).__init__()
 
         self.filepath = filepath
@@ -189,6 +189,8 @@ class Spectrumv18(Spectra):
         self._ext = None
         self._qc = None
         self._exposed = None
+
+        self.name = obj_name
 
     @property
     def badpix(self):

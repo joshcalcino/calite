@@ -70,14 +70,16 @@ def calibSpec(obj_name, spectra, photo, outBase, filters, plotFlag, coaddFlag,
                                  spectra.wavelength, filters.centers, plotName, plotTitle=title)
 
     if coaddFlag == False:
+        outName = outBase + obj_name + "_scaled"  ".fits"
         sio.create_output_single(obj_name, extensions, scaling, spectra,
                                     noPhotometry, badQC, photo.name,
-                                    outBase, redshift)
+                                    outName, redshift)
 
     elif coaddFlag in ['Run', 'Date', 'All']:
+        outName = outBase + obj_name + "_scaled_" + coaddFlag + ".fits"
         coadd_output(obj_name, extensions, scaling, spectra,
                             noPhotometry, badQC, photo.name,
-                            outBase, plotFlag, coaddFlag, redshift)
+                            outName, plotFlag, coaddFlag, redshift)
     else:
         print("What do you want me to do with this data? Please specify output type.")
 
@@ -142,14 +144,16 @@ def calibSpec_from_coadd_fit(obj_name, spectra, coadd_spectra, photo, outBase, f
                                  spectra.wavelength, filters.centers, plotName, plotTitle=title)
 
     if coaddFlag == False:
+        outName = outBase + obj_name + "_fitscaled"  ".fits"
         sio.create_output_single(obj_name, extensions, scaling, spectra,
                                     noPhotometry, badQC, photo.name,
-                                    outBase, redshift)
+                                    outName, redshift)
 
     elif coaddFlag in ['Run', 'Date', 'All']:
+        outName = outBase + obj_name + "_fitscaled_" + coaddFlag + ".fits"
         coadd_output(obj_name, extensions, scaling, spectra,
                             noPhotometry, badQC, photo.name,
-                            outBase, plotFlag, coaddFlag, redshift)
+                            outName, plotFlag, coaddFlag, redshift)
     else:
         print("What do you want me to do with this data? Please specify output type.")
 

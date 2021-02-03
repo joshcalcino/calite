@@ -1,6 +1,8 @@
 from numba import jit
 import numpy as np
 from scipy.interpolate import interp1d
+import scipy.fftpack as fft
+from scipy.signal import savgol_filter
 import pyckles
 import calite.specstruct as st
 import matplotlib.pyplot as plt
@@ -217,3 +219,21 @@ def get_num_var(interp_wave, tmp_flux2, tmp_var2, trans_interp):
     Num_var = np.nansum(tmp_var2 * (trans_interp * interp_wave) ** 2)
     Den = np.nansum(trans_interp / interp_wave)
     return Num, Num_var, Den
+
+
+def smooth_spectra_savitsky_golay(flux, window=21, order=2):
+    smoothed = savgol_filter(flux, window, order)
+    return smoothed
+
+
+def filter_nans(*args):
+    """ reutrns the arrays nan elements from first
+        array removed from all arrays.
+    """
+
+    nan_mask = np.array([np.isnan(f) for f in args[0]])
+
+    if len(args) > 1:
+        return tuple(arg[~nan_mask] for arg in args)
+    else:
+        return args[0][~nan_mask]

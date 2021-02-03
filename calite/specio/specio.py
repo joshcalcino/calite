@@ -13,7 +13,7 @@ from chainconsumer import ChainConsumer
 from ..utils import BBK, build_path
 
 
-def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, badQC, photoName, outBase,
+def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, badQC, photoName, outName,
                          redshift):
     """Apply clibration to spectra and save to a new file.
     Parameters
@@ -29,7 +29,6 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
     K :
     """
 
-    outName = outBase + obj_name + "_scaled.fits"
     print("Saving Data to " + outName)
 
     hdulist = fits.HDUList(fits.PrimaryHDU())
@@ -147,13 +146,12 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
 
 
 def create_output_coadd(obj_name, runList, fluxArray, varianceArray, badpixArray, extensions, scaling, spectra, redshift,
-                        badQC, noPhotometry, photoName, outBase, coaddFlag):
+                        badQC, noPhotometry, photoName, outName, coaddFlag):
     """
     Outputs the warped and coadded spectra to a new fits file.
 
     """
 
-    outName = outBase + obj_name + "_scaled_" + coaddFlag + ".fits"
     hdulist = fits.HDUList(fits.PrimaryHDU())
 
     noPhotometryExt = []
