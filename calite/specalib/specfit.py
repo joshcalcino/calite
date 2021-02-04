@@ -125,32 +125,41 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         else:
             best_fit = warp_uncalib_spectra(max_likelihoods, fit_spectra.flux[:, index], filters.centers, fit_spectra.wavelength)
 
-        plt.figure()
-        plt.plot(fit_spectra_wavelength, spectra_flux, label='Template Spectra', alpha=.5)
-        plt.plot(fit_spectra_wavelength, best_fit, label='Best Fit', alpha=0.5)
-        plt.legend()
-        plt.savefig(fit_spectra.name + '_' + str(index) + '.png')
+        # plt.figure()
+        # plt.plot(fit_spectra_wavelength, spectra_flux, label='Template Spectra', alpha=.5)
+        # plt.plot(fit_spectra_wavelength, best_fit, label='Best Fit', alpha=0.5)
+        # plt.legend()
+        # plt.savefig(fit_spectra.name + '_' + str(index) + '.png')
 
         photo = np.zeros(3)
         photoU = np.zeros(3)
 
-        nchain_samples = 500
+        nchain_samples = np.min([5000, nsteps])
         # print(samples)
 
-        ids = range(nchain_samples)
+        ids = range(nsteps)
 
         rand_ids = np.random.choice(ids, size=nchain_samples)
         rand_samples = samples[rand_ids]
 
         tmp_samples = np.zeros(nchain_samples)
+        print("about to be computing photo and photoU")
 
         for i, band in enumerate(filters.bands):
+            print("Should be computing photo and photoU")
             photo[i] = cu.compute_mag_fast(filters[band], fit_spectra.wavelength, best_fit)
 
             for j in range(nchain_samples):
-                tmp_flux = warp_uncalib_spectra_pol(rand_samples[j], fit_spectra.flux[:, index], fit_spectra.wavelength)
-                tmp_samples[j] = cu.compute_mag_fast(filters[band], fit_spectra.wavelength, tmp_flux)
+                tmp_flux = warp_uncalib_spectra_pol(rand_samples[j], fit_spectra_flux, fit_spectra_wavelength_fit)
+                # print("tmp_flux", tmp_flux)
+                # plt.plot(fit_spectra_wavelength, tmp_flux)
+                # plt.show()
+                tmp_samples[j] = cu.compute_mag_fast(filters[band], fit_spectra_wavelength, tmp_flux)
 
+            # plt.hist(tmp_samples, bins=50)
+            # plt.show()
+            
+            # The histogram of this distribution is not very Gaussian..
             photoU[i] = np.std(tmp_samples)
 
         scale_params = np.zeros(6)

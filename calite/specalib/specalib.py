@@ -204,6 +204,9 @@ def calib_star_from_template_fit(obj_name, spectra, photo, outBase, filters, plo
 
     badQC = badQC + badData
 
+    noPhotometry = []
+
+
     # And finally warp the data
     for s in extensions:
         if plotFlag != False:
@@ -224,13 +227,13 @@ def calib_star_from_template_fit(obj_name, spectra, photo, outBase, filters, plo
         outName = outBase + obj_name + "_fitscaled.fits"
         sio.create_output_single(obj_name, extensions, scaling, spectra,
                                     noPhotometry, badQC, photo.name,
-                                    outBase, redshift)
+                                    outName, redshift)
 
     elif coaddFlag in ['Run', 'Date', 'All']:
         outName = outBase + obj_name + "_fitscaled_" + coaddFlag + ".fits"
         coadd_output(obj_name, extensions, scaling, spectra,
                             noPhotometry, badQC, photo.name,
-                            outBase, plotFlag, coaddFlag, redshift)
+                            outName, plotFlag, coaddFlag, redshift)
     else:
         print("What do you want me to do with this data? Please specify output type.")
 
@@ -493,8 +496,8 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
 
-        print("Ozdesphoto", ozdesPhoto)
-        print("OzdesphotoU", ozdesPhotoU)
+        # print("Ozdesphoto", ozdesPhoto)
+        # print("OzdesphotoU", ozdesPhotoU)
 
         if np.isnan(ozdesPhoto[:, e]).any() == True:
             badData.append(e)

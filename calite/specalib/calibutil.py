@@ -93,7 +93,7 @@ def computeABmag(filter, tmp_wave, tmp_flux, tmp_var):
 
 
 
-def compute_mag_fast(filter, tmp_wave, tmp_flux):
+def compute_mag_var_fast(filter, tmp_wave, tmp_flux):
     """
     Computes the AB magnitude for given transmission functions and spectrum
     `f_lambda`. Returns the magnitude and variance.
