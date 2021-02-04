@@ -125,11 +125,11 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         else:
             best_fit = warp_uncalib_spectra(max_likelihoods, fit_spectra.flux[:, index], filters.centers, fit_spectra.wavelength)
 
-        # plt.figure()
-        # plt.plot(fit_spectra_wavelength, spectra_flux, label='Template Spectra', alpha=.5)
-        # plt.plot(fit_spectra_wavelength, best_fit, label='Best Fit', alpha=0.5)
-        # plt.legend()
-        # plt.savefig(fit_spectra.name + '_' + str(index) + '.png')
+        plt.figure()
+        plt.plot(fit_spectra_wavelength, spectra_flux, label='Template Spectra', alpha=.5)
+        plt.plot(fit_spectra_wavelength, best_fit, label='Best Fit', alpha=0.5)
+        plt.legend()
+        plt.savefig(fit_spectra.name + '_' + str(index) + '.png')
 
         photo = np.zeros(3)
         photoU = np.zeros(3)
