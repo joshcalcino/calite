@@ -48,11 +48,15 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         fit_spectra_flux, fit_spectra_errors, fit_spectra_wavelength =\
                     cu.filter_nans(fit_spectra.flux[:, index], fit_spectra_errors, fit_spectra.wavelength)
 
+        # plt.plot(fit_spectra_wavelength, fit_spectra_flux)
+        # plt.plot(fit_spectra_wavelength, fit_spectra_errors)
+        # plt.show()
+
         fit_spectra_flux = cu.smooth_spectra_savitsky_golay(fit_spectra_flux, window=21, order=3)
 
         if isinstance(template_spectra, st.SpectraLite):
             spectra_flux_interp = interp1d(template_spectra.wavelength, template_spectra.flux)
-            spectra_flux = spectra_flux_interp(fit_spectra_wavelength)
+            spectra_flux = spectra_flux_interp(fit_spectra_wavelength) * 1e17
 
         elif isinstance(template_spectra, st.SpectrumCoadd):
             spectra_flux = template_spectra.fluxCoadd*1e17
@@ -107,9 +111,9 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         c.add_chain(samples)
 
         # c.plotter.plot_walks()
-        # plt.savefig()
+        # # plt.savefig()
         # c.plotter.plot()
-        # plt.savefig('corner_4.png')
+        # # plt.savefig('corner_4.png')
         # plt.show()
 
         summary = c.analysis.get_summary()
@@ -120,21 +124,22 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         upper_bound = [summary[key][2] for key in summary.keys()]
 
         if 'order' in kwargs.keys():
-            best_fit_raw = warp_uncalib_spectra_pol(max_likelihoods, fit_spectra.flux[:, index], np.linspace(0, 1, len(fit_spectra.wavelength)))
-            best_fit = warp_uncalib_spectra_pol(max_likelihoods, fit_spectra_flux, fit_spectra_wavelength_fit)
+            best_fit_raw = warp_uncalib_spectra_pol(max_likelihoods, fit_spectra.flux[:, index], np.linspace(0, 1, len(fit_spectra.wavelength)))*1e-17
+            best_fit = warp_uncalib_spectra_pol(max_likelihoods, fit_spectra_flux, fit_spectra_wavelength_fit)*1e-17
         else:
             best_fit = warp_uncalib_spectra(max_likelihoods, fit_spectra.flux[:, index], filters.centers, fit_spectra.wavelength)
 
         plt.figure()
-        plt.plot(fit_spectra_wavelength, spectra_flux, label='Template Spectra', alpha=.5)
+        plt.plot(fit_spectra_wavelength, spectra_flux*1e-17, label='Template Spectra', alpha=.5)
         plt.plot(fit_spectra_wavelength, best_fit, label='Best Fit', alpha=0.5)
         plt.legend()
-        plt.savefig(fit_spectra.name + '_' + str(index) + '.png')
+        plt.show()
+        # plt.savefig(fit_spectra.name + '_' + str(index) + '.png')
 
         photo = np.zeros(3)
         photoU = np.zeros(3)
 
-        nchain_samples = np.min([5000, nsteps])
+        nchain_samples = np.min([2000, nsteps])
         # print(samples)
 
         ids = range(nsteps)
@@ -143,31 +148,28 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         rand_samples = samples[rand_ids]
 
         tmp_samples = np.zeros(nchain_samples)
-        print("about to be computing photo and photoU")
+        tmp_flux = np.zeros((nchain_samples, len(fit_spectra.wavelength)))
+
+        for k in range(nchain_samples):
+            tmp_flux[k] = warp_uncalib_spectra_pol(rand_samples[k], fit_spectra.flux[:, index], np.linspace(0, 1, len(fit_spectra.wavelength)))*1e-17
+
+        model_variance = np.sqrt(np.std(tmp_flux, axis=0))
+        total_variance = model_variance + fit_spectra.variance[:, index]
+
+        tmp_flux_nanr = np.array([cu.filter_nans(arr) for arr in tmp_flux])
 
         for i, band in enumerate(filters.bands):
-            print("Should be computing photo and photoU")
             photo[i] = cu.compute_mag_fast(filters[band], fit_spectra.wavelength, best_fit)
 
             for j in range(nchain_samples):
-                tmp_flux = warp_uncalib_spectra_pol(rand_samples[j], fit_spectra_flux, fit_spectra_wavelength_fit)
-                # print("tmp_flux", tmp_flux)
-                # plt.plot(fit_spectra_wavelength, tmp_flux)
-                # plt.show()
-                tmp_samples[j] = cu.compute_mag_fast(filters[band], fit_spectra_wavelength, tmp_flux)
-
-            # plt.hist(tmp_samples, bins=50)
-            # plt.show()
+                tmp_samples[j] = cu.compute_mag_fast(filters[band], fit_spectra_wavelength, tmp_flux[j])
 
             # The histogram of this distribution is not very Gaussian..
             photoU[i] = np.std(tmp_samples)
 
-        scale_params = np.zeros(6)
+        print("mock_photo", photo, photoU)
 
-        scale_params[0:3] = photo
-        scale_params[3:6] = photoU
-
-    return scale_params
+    return best_fit_raw, total_variance, photo, photoU
 
 
 def curve_to_fit(x, *params):

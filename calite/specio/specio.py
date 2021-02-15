@@ -15,7 +15,7 @@ from ..utils import BBK, build_path
 
 def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, badQC, photoName, outName,
                          redshift):
-    """Apply clibration to spectra and save to a new file.
+    """Apply calibration to spectra and save to a new file.
     Parameters
     ----------
     obj_name : string
@@ -86,44 +86,16 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
         header["MAGUR"] = scaling[11, i]
         header["MAGI"] = scaling[12, i]
         header["MAGUI"] = scaling[13, i]
+
+        # print('*****EXTENSION {}*******'.format(i))
+        # for key in header.keys():
+        #     print(key, header[key])
+
+
         if index == 0:
-            hdulist[0].header['SOURCE'] = obj_name
-            hdulist[0].header['RA'] = spectra.RA
-            hdulist[0].header['DEC'] = spectra.DEC
-            hdulist[0].header['CRPIX1'] = spectra.crpix1
-            hdulist[0].header['CRVAL1'] = spectra.crval1
-            hdulist[0].header['CDELT1'] = spectra.cdelt1
-            hdulist[0].header['CTYPE1'] = 'wavelength'
-            hdulist[0].header['CUNIT1'] = 'angstrom'
-            hdulist[0].header['EPOCHS'] = len(extensions)
+            for key in header.keys():
+                hdulist[0].header[key] = header[key]
 
-            # save the names of the input data and the extensions ignored
-            hdulist[0].header['SFILE'] = spectra.filepath
-            hdulist[0].header['PFILE'] = photoName
-            hdulist[0].header['NOPHOTO'] = ','.join(map(str, noPhotometryExt))
-            hdulist[0].header['BADQC'] = ','.join(map(str, badQCExt))
-
-            # save the original spectrum's extension number and some other details
-            hdulist[0].header["EXT"] = spectra.ext[i]
-            hdulist[0].header["UTMJD"] = spectra.dates[i]
-            hdulist[0].header["EXPOSE"] = spectra.exposed[i]
-            hdulist[0].header["QC"] = spectra.qc[i]
-
-            # save scale factors/uncertainties
-            hdulist[0].header["SCALEG"] = scaling[0, i]
-            hdulist[0].header["ERRORG"] = scaling[3, i]
-            hdulist[0].header["SCALER"] = scaling[1, i]
-            hdulist[0].header["ERRORR"] = scaling[4, i]
-            hdulist[0].header["SCALEI"] = scaling[2, i]
-            hdulist[0].header["ERRORI"] = scaling[5, i]
-
-            # save photometry/uncertainties used to calculate scale factors
-            hdulist[0].header["MAGG"] = scaling[8, i]
-            hdulist[0].header["MAGUG"] = scaling[9, i]
-            hdulist[0].header["MAGR"] = scaling[10, i]
-            hdulist[0].header["MAGUR"] = scaling[11, i]
-            hdulist[0].header["MAGI"] = scaling[12, i]
-            hdulist[0].header["MAGUI"] = scaling[13, i]
             hdulist[0].data = spectra.flux[:, i]
             hdulist.append(fits.ImageHDU(data=spectra.variance[:, i], header=header))
             hdulist.append(fits.ImageHDU(data=spectra.badpix[:, i], header=header))
@@ -134,6 +106,7 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
             hdulist.append(fits.ImageHDU(data=spectra.flux[:, i], header=header))
             hdulist.append(fits.ImageHDU(data=spectra.variance[:, i], header=header))
             hdulist.append(fits.ImageHDU(data=spectra.badpix[:, i], header=header))
+
 
     filepath = os.path.dirname(outName)
     if not os.path.exists(filepath):

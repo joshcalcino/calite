@@ -25,8 +25,16 @@ def norm_diff_spectra(spectra1, spectra2):
     if np.shape(spectra1.flux) != np.shape(spectra2.flux):
         return np.array([np.nan])
 
-    sum1 = np.array([np.sum(spectra1.flux[:, i]) for i in range(len(spectra1.flux[0, :]) )])
-    sum2 = np.array([np.sum(spectra2.flux[:, i]) for i in range(len(spectra2.flux[0, :]) )])
+
+    print(spectra2.numEpochs)
+
+    for i in range(len(spectra1.flux[0, :])):
+        print(np.sum(len(spectra1.flux[:, i])))
+
+    sum1 = np.array([np.nansum(spectra1.flux[:, i]) for i in range(len(spectra1.flux[0, :]) )])
+    sum2 = np.array([np.nansum(spectra2.flux[:, i]) for i in range(len(spectra2.flux[0, :]) )])
+
+    print(sum1, sum2)
 
     norm_diff = (sum1 - sum2)/sum1
 

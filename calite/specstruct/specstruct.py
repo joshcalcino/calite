@@ -109,8 +109,6 @@ class SpectrumCoadd(Spectra):
         self._dates = None
         self._runs = None
         self.numEpochs = int((np.size(self.data) - 3) / 3)
-        print(self.numEpochs)
-        self.redshift = self.combinedFlux.header['z']
         self.RA = self.combinedFlux.header['RA']
         self.DEC = self.combinedFlux.header['DEC']
         self.field = self.combinedFlux.header['FIELD']
@@ -119,6 +117,11 @@ class SpectrumCoadd(Spectra):
         self.crpix1 = self.combinedFlux.header['crpix1']
         self.crval1 = self.combinedFlux.header['crval1']
         self.len_wavelength = len(self.wavelength)
+
+        if 'z' in self.combinedFlux.header.keys():
+            self.redshift = self.combinedFlux.header['z']
+        else:
+            self.redshift = 0.0
 
         # self.fluxCoadd = self.combinedFlux.data
         # self.varianceCoadd = self.combinedVariance.data
@@ -300,6 +303,17 @@ class Photo(object):
 
 
     def __getitem__(self, item):
+        if isinstance(item, list):
+            cols = []
+            for i in item:
+                try:
+                    col = self.data[i]
+                    cols.append(col)
+
+                except ValueError:
+                    print("{} is not a valid key for class Photo".format(item))
+            return cols
+
         try:
             col = self.data[item]
             return col

@@ -41,17 +41,21 @@ def calibSpec(obj_name, spectra, photo, outBase, filters, plotFlag, coaddFlag,
     else:
         plotName = False
 
+
     # First we decide which extensions are worth scaling
     extensions, noPhotometry, badQC = prevent_Excess(spectra, photo, filters.bands, interpFlag)
 
     # Then we calculate the scale factors
     badData, scaling = scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, filters, interpFlag,
                                         plotName)
+    print("scaling", scaling)
 
     # Remove last minute trouble makers
     extensions = [e for e in extensions if e not in badData]
+    print("extensions", extensions)
 
     badQC = badQC + badData
+    print("badQC", badQC)
 
     # And finally warp the data
     for s in extensions:
@@ -77,80 +81,6 @@ def calibSpec(obj_name, spectra, photo, outBase, filters, plotFlag, coaddFlag,
 
     elif coaddFlag in ['Run', 'Date', 'All']:
         outName = outBase + obj_name + "_scaled_" + coaddFlag + ".fits"
-        coadd_output(obj_name, extensions, scaling, spectra,
-                            noPhotometry, badQC, photo.name,
-                            outName, plotFlag, coaddFlag, redshift)
-    else:
-        print("What do you want me to do with this data? Please specify output type.")
-
-    return
-
-
-def calibSpec_from_coadd_fit(obj_name, spectra, coadd_spectra, photo, outBase, filters, plotFlag, coaddFlag, redshift, **kwargs):
-    """
-    This function will determine extensions which can be calibrated,
-    fit the scale factors to a previously coadded spectra, warping function, and output a new fits file
-    with the scaled spectra.
-
-    Parameters
-    ----------
-    obj_name : str
-        The name of the object.
-
-    Returns
-    -------
-
-    """
-
-    if plotFlag != False:
-        plotName = os.path.join(plotFlag, obj_name)
-
-        # Build the path to the plot directory if it does not exist
-        filepath = os.path.dirname(plotName)
-        if not os.path.exists(filepath):
-            ut.build_path(filepath)
-
-    else:
-        plotName = False
-
-    interpFlag = None
-
-    # First we decide which extensions are worth scaling
-    extensions, badQC = get_badQC(spectra)
-
-
-    # Then we calculate the scale factors
-    badData, scaling = scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, filters, plotFlag, **kwargs)
-
-    # Remove last minute trouble makers
-    extensions = [e for e in extensions if e not in badData]
-
-    badQC = badQC + badData
-
-    # And finally warp the data
-    for s in extensions:
-        if plotFlag != False:
-            plotName = os.path.join(plotFlag, obj_name + "_" + str(s))
-            # plotName = plotFlag + obj_name + "_" + str(s)
-        else:
-            plotName = False
-
-        title = '{} {}'.format(spectra.data[s*3].header['RA'], spectra.data[s*3].header['DEC'])
-
-        # scale the spectra
-        spectra.flux[:, s], spectra.variance[:, s] =\
-                    warp_spectra(scaling[0:3, s], scaling[3:6, s],
-                                 spectra.flux[:, s], spectra.variance[:, s],
-                                 spectra.wavelength, filters.centers, plotName, plotTitle=title)
-
-    if coaddFlag == False:
-        outName = outBase + obj_name + "_fitscaled"  ".fits"
-        sio.create_output_single(obj_name, extensions, scaling, spectra,
-                                    noPhotometry, badQC, photo.name,
-                                    outName, redshift)
-
-    elif coaddFlag in ['Run', 'Date', 'All']:
-        outName = outBase + obj_name + "_fitscaled_" + coaddFlag + ".fits"
         coadd_output(obj_name, extensions, scaling, spectra,
                             noPhotometry, badQC, photo.name,
                             outName, plotFlag, coaddFlag, redshift)
@@ -195,7 +125,6 @@ def calib_star_from_template_fit(obj_name, spectra, photo, outBase, filters, plo
     # Find which Pickles spectra best matches this source
     template_spectra = cu.get_best_spectra_template(photo, filters)
 
-
     # Then we calculate the scale factors
     badData, scaling = scaling_matrix_from_fit(spectra, template_spectra, extensions, badQC, photo, filters, plotFlag, **kwargs)
 
@@ -206,22 +135,8 @@ def calib_star_from_template_fit(obj_name, spectra, photo, outBase, filters, plo
 
     noPhotometry = []
 
-
-    # And finally warp the data
-    for s in extensions:
-        if plotFlag != False:
-            plotName = os.path.join(plotFlag, obj_name + "_" + str(s))
-            # plotName = plotFlag + obj_name + "_" + str(s)
-        else:
-            plotName = False
-
-        title = '{} {}'.format(spectra.data[s*3].header['RA'], spectra.data[s*3].header['DEC'])
-
-        # scale the spectra
-        spectra.flux[:, s], spectra.variance[:, s] =\
-                    warp_spectra(scaling[0:3, s], scaling[3:6, s],
-                                 spectra.flux[:, s], spectra.variance[:, s],
-                                 spectra.wavelength, filters.centers, plotName, plotTitle=title)
+    print("scaling", scaling)
+    print("extensions", extensions)
 
     if coaddFlag == False:
         outName = outBase + obj_name + "_fitscaled.fits"
@@ -271,7 +186,9 @@ def prevent_Excess(spectra, photo, bands, interpFlag):
     else:
         for e in range(len(photo['Date'][:])):
             for b, band in enumerate(bands):
-                if photo['Band'][e] == band:
+                # print(band, photo['Band'][e])
+                if str(photo['Band'][e], encoding='utf-8') == band:
+                    # print(photo['Band'][e])
                     if photo['Date'][e] > maxPhot[b]:
                         maxPhot[b] = photo['Date'][e]
                     if photo['Date'][e] < minPhot[b]:
@@ -362,6 +279,24 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, filters, int
     ozdesPhotoU = np.zeros((3, spectra.numEpochs))
     desPhotoU = np.zeros((3, spectra.numEpochs))
 
+    if interpFlag == 'first':
+        desPhoto[0, :] = photo['g']
+        desPhoto[1, :] = photo['r']
+        desPhoto[2, :] = photo['i']
+
+        desPhotoU[0, :] = 0.01
+        desPhotoU[1, :] = 0.01
+        desPhotoU[2, :] = 0.01
+
+        scaling[8, :] = desPhoto[0, :]
+        scaling[10, :] = desPhoto[1, :]
+        scaling[12, :] = desPhoto[2, :]
+
+        scaling[9, :] = desPhotoU[0, :]
+        scaling[11, :] = desPhotoU[1, :]
+        scaling[13, :] = desPhotoU[2, :]
+
+
     if interpFlag == 'BBK':
         desPhoto, desPhotoU = des_photo_BBK(photo, spectra.dates, filters.bands, spectra.numEpochs, plotFlag)
 
@@ -432,6 +367,11 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, filters, int
             scaling[11, e] = desPhotoU[1, e]
             scaling[13, e] = desPhotoU[2, e]
 
+        print("DES Photo", desPhoto[:,e])
+        print("OzDES Photo", ozdesPhoto[:, e])
+        # plt.plot(spectra.wavelength, spectra.flux[:, e])
+        # plt.show()
+
         # Find Scale Factor
         scaling[0, e], scaling[3, e] = scale_factors(desPhoto[0, e] - ozdesPhoto[0, e],
                                                      desPhotoU[0, e] + ozdesPhotoU[0, e])
@@ -439,6 +379,8 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, filters, int
                                                      desPhotoU[1, e] + ozdesPhotoU[1, e])
         scaling[2, e], scaling[5, e] = scale_factors(desPhoto[2, e] - ozdesPhoto[2, e],
                                                      desPhotoU[2, e] + ozdesPhotoU[2, e])
+
+        # print("Scaling is ", scaling)
 
 
     return badData, scaling
@@ -502,11 +444,17 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
         if np.isnan(ozdesPhoto[:, e]).any() == True:
             badData.append(e)
 
-        scaling[:6, e] = sf.fit_spectra_to_coadd(spectra, coadd_spectra, filters, fit_method='emcee', index=e, **kwargs)
+        spectra.flux[:, e], spectra.variance[:, e], mock_photo[:, e], mock_photo_var[:, e] =\
+            sf.fit_spectra_to_coadd(spectra, coadd_spectra, filters, fit_method='emcee', index=e, **kwargs)
 
-        print(scaling[:3, e], scaling[3:6, e], ozdesPhoto[:, e])
+        print("ozdesphoto", ozdesPhoto[0, e])
 
-        mock_photo[:, e], mock_photo_var[:, e] = mock_photo_from_fit(scaling[:3, e], scaling[3:6, e], ozdesPhoto[:, e])
+        scaling[:3, e], scaling[3:6, e] = scale_factors(mock_photo[:, e] - ozdesPhoto[0, e],
+                                                        mock_photo_var[:, e] + ozdesPhotoU[0, e])
+        # print(scaling[:3, e], scaling[3:6, e], ozdesPhoto[:, e])
+
+
+        # mock_photo[:, e], mock_photo_var[:, e] = mock_photo_from_fit(scaling[:3, e], scaling[3:6, e], ozdesPhoto[:, e])
 
         scaling[8, e] = mock_photo[0, e]
         scaling[10, e] = mock_photo[1, e]
@@ -550,15 +498,16 @@ def des_photo(photo, spectral_mjd, bands):
     errs = np.zeros(3)
 
     for l in range(len(photo['Date']) - 1):
-        if photo['Band'][l] == bands[0] and photo['Date'][l] < spectral_mjd < photo['Date'][l + 1]:
+        photo_band = str(photo['Band'][l], encoding='utf-8')
+        if photo_band == bands[0] and photo['Date'][l] < spectral_mjd < photo['Date'][l + 1]:
             g_date_v = np.array([photo['Date'][l], photo['Date'][l + 1]])
             g_mag_v = np.array([photo['Mag'][l], photo['Mag'][l + 1]])
             g_err_v = np.array([photo['Mag_err'][l], photo['Mag_err'][l + 1]])
-        if photo['Band'][l] == bands[1] and photo['Date'][l] < spectral_mjd < photo['Date'][l + 1]:
+        if photo_band == bands[1] and photo['Date'][l] < spectral_mjd < photo['Date'][l + 1]:
             r_date_v = np.array([photo['Date'][l], photo['Date'][l + 1]])
             r_mag_v = np.array([photo['Mag'][l], photo['Mag'][l + 1]])
             r_err_v = np.array([photo['Mag_err'][l], photo['Mag_err'][l + 1]])
-        if photo['Band'][l] == bands[2] and photo['Date'][l] < spectral_mjd < photo['Date'][l + 1]:
+        if photo_band == bands[2] and photo['Date'][l] < spectral_mjd < photo['Date'][l + 1]:
             i_date_v = np.array([photo['Date'][l], photo['Date'][l + 1]])
             i_mag_v = np.array([photo['Mag'][l], photo['Mag'][l + 1]])
             i_err_v = np.array([photo['Mag_err'][l], photo['Mag_err'][l + 1]])

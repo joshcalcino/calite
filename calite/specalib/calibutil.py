@@ -32,9 +32,8 @@ def get_best_spectra_template(photo, filters):
         flux = np.array(spec.data['flux'], dtype=np.float)
         wave = np.array(spec.data['wavelength'], dtype=np.float)
 
-        var = np.zeros(len(wave))
         for i, band in enumerate(filters.bands):
-            spec_photo[i], _ = computeABmag(filters[band], wave, flux, var)
+            spec_photo[i] = compute_mag_fast(filters[band], wave, flux)
 
         for i in range(len(filters.bands)-1):
             spec_diffs[i] = spec_photo[i] - spec_photo[i+1]
@@ -46,10 +45,62 @@ def get_best_spectra_template(photo, filters):
             min = diff
             selectedTemplate = spec
 
-    spectra = st.SpectraLite(wavelength=selectedTemplate.data['wavelength'], flux=selectedTemplate.data['flux'])
+    spectrum = st.SpectraLite(wavelength=np.array(selectedTemplate.data['wavelength'], dtype=np.float),
+                              flux=np.array(selectedTemplate.data['flux'], dtype=np.float))
 
-    return spectra
+    # plt.plot(spectrum.wavelength, spectrum.flux)
+    # plt.show()
 
+    # Now we need to shift the y-axis of this spectra to match DES observations
+    spectrum = shift_spectrum(spectrum, photo, filters)
+
+    return spectrum
+
+
+def shift_spectrum(spectrum, photo, filters):
+    # Set length of magnitudes to be min(n_bands, n_filters)
+    len_mags = len(filters.bands)
+
+    unshifted_bands = np.zeros(len_mags)
+    mag_differences = np.zeros(len_mags)
+
+    # Find difference between the actual photometry, and the inegrated flux per band
+    # in the template spectrum
+
+    for i, band in enumerate(filters.bands):
+        unshifted_bands[i] = compute_mag_fast(filters[band], spectrum.wavelength, spectrum.flux)
+        mag_differences[i] = photo[filters.bands[i]] - unshifted_bands[i]
+
+    # Use these differences to scale the y-axis of the template spectrum
+    mag_difference = np.average(mag_differences)
+
+    spectrum.flux = spectrum.flux * scale_factor(mag_difference)
+
+    test_bands = np.zeros(len_mags)
+    for i, band in enumerate(filters.bands):
+        test_bands[i] = compute_mag_fast(filters[band], spectrum.wavelength, spectrum.flux)
+
+    bands = ['g', 'r', 'i']
+
+    # plt.scatter(filters.centers, photo[bands])
+    # plt.scatter(filters.centers, test_bands)
+    # plt.show()
+    #
+    # plt.plot(spectrum.wavelength, spectrum.flux)
+    # plt.show()
+
+    return spectrum
+
+def scale_factor(mag_diff):
+    """
+    Calculates the scale factor and variance needed to change spectrscopically
+    derived magnitude to the observed photometry.
+
+    """
+
+    flux_ratio = np.power(10., 0.4 * mag_diff)  # f_synthetic/f_photometry
+    scale_factor = (1. / flux_ratio)
+    return scale_factor
 
 def computeABmag(filter, tmp_wave, tmp_flux, tmp_var):
     """
