@@ -46,6 +46,10 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
     index = 0
     # Create an HDU for each night
     for i in extensions:
+        for s, j in enumerate(scaling[:, i]):
+            if not np.isfinite(s):
+                scaling[j, i] = 0            
+
         header = fits.Header()
         header['SOURCE'] = obj_name
         header['RA'] = spectra.RA
