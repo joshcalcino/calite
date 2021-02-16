@@ -34,6 +34,7 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         ``scale_params[3:6]`` is the uncertainties for g, r, i, respectively.
 
     """
+    print(index)
 
     if fit_method == 'emcee':
 
@@ -133,8 +134,9 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         plt.plot(fit_spectra_wavelength, spectra_flux*1e-17, label='Template Spectra', alpha=.5)
         plt.plot(fit_spectra_wavelength, best_fit, label='Best Fit', alpha=0.5)
         plt.legend()
-        plt.show()
-        # plt.savefig(fit_spectra.name + '_' + str(index) + '.png')
+        # plt.show()
+        plt.savefig(fit_spectra.name + '_' + str(index) + '.png')
+        plt.clf()
 
         photo = np.zeros(3)
         photoU = np.zeros(3)
