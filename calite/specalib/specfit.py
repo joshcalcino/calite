@@ -7,6 +7,7 @@ import calite.specstruct as st
 from . import calibutil as cu
 import matplotlib.pyplot as plt
 from scipy.interpolate import InterpolatedUnivariateSpline
+from scipy.signal import medfilt
 
 
 def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emcee', index=None, **kwargs):
@@ -48,12 +49,18 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
 
         fit_spectra_flux, fit_spectra_errors, fit_spectra_wavelength =\
                     cu.filter_nans(fit_spectra.flux[:, index], fit_spectra_errors, fit_spectra.wavelength)
+        # plt.figure()
 
-        # plt.plot(fit_spectra_wavelength, fit_spectra_flux)
+        # plt.plot(fit_spectra_wavelength, fit_spectra_flux, label='Raw')
         # plt.plot(fit_spectra_wavelength, fit_spectra_errors)
         # plt.show()
+        fit_spectra_flux = medfilt(fit_spectra_flux, kernel_size=21)
+        # plt.plot(fit_spectra_wavelength, fit_spectra_flux, label='Median')
 
-        fit_spectra_flux = cu.smooth_spectra_savitsky_golay(fit_spectra_flux, window=21, order=3)
+        fit_spectra_flux = cu.smooth_spectra_savitsky_golay(fit_spectra_flux, window=51, order=5)
+        # plt.plot(fit_spectra_wavelength, fit_spectra_flux, label='Median+SG')
+        # plt.legend()
+        # plt.show()
 
         if isinstance(template_spectra, st.SpectraLite):
             spectra_flux_interp = interp1d(template_spectra.wavelength, template_spectra.flux)
@@ -127,16 +134,17 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
         if 'order' in kwargs.keys():
             best_fit_raw = warp_uncalib_spectra_pol(max_likelihoods, fit_spectra.flux[:, index], np.linspace(0, 1, len(fit_spectra.wavelength)))*1e-17
             best_fit = warp_uncalib_spectra_pol(max_likelihoods, fit_spectra_flux, fit_spectra_wavelength_fit)*1e-17
+            best_fit_pol = np.polynomial.Polynomial(max_likelihoods)(np.linspace(0, 1, len(fit_spectra.wavelength)))
         else:
             best_fit = warp_uncalib_spectra(max_likelihoods, fit_spectra.flux[:, index], filters.centers, fit_spectra.wavelength)
 
-        plt.figure()
-        plt.plot(fit_spectra_wavelength, spectra_flux*1e-17, label='Template Spectra', alpha=.5)
-        plt.plot(fit_spectra_wavelength, best_fit, label='Best Fit', alpha=0.5)
-        plt.legend()
+        # plt.figure()
+        # plt.plot(fit_spectra_wavelength, spectra_flux*1e-17, label='Template Spectra', alpha=.5)
+        # plt.plot(fit_spectra_wavelength, best_fit, label='Best Fit', alpha=0.5)
+        # plt.legend()
         # plt.show()
-        plt.savefig(fit_spectra.name + '_' + str(index) + '.png')
-        plt.clf()
+        # plt.savefig(fit_spectra.name + '_' + str(index) + '.png')
+        # plt.clf()
 
         photo = np.zeros(3)
         photoU = np.zeros(3)
@@ -151,11 +159,14 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
 
         tmp_samples = np.zeros(nchain_samples)
         tmp_flux = np.zeros((nchain_samples, len(fit_spectra.wavelength)))
+        tmp_pol = np.zeros((nchain_samples, len(fit_spectra.wavelength)))
 
         for k in range(nchain_samples):
-            tmp_flux[k] = warp_uncalib_spectra_pol(rand_samples[k], fit_spectra.flux[:, index], np.linspace(0, 1, len(fit_spectra.wavelength)))*1e-17
+            tmp_pol[k] = np.polynomial.Polynomial(rand_samples[k])(np.linspace(0, 1, len(fit_spectra.wavelength)))
+            tmp_flux[k] = fit_spectra.flux[:, index] * tmp_pol[k] * 1e-17
 
         model_variance = np.sqrt(np.std(tmp_flux, axis=0))
+        pol_var = np.sqrt(np.std(tmp_pol, axis=0))
         total_variance = model_variance + fit_spectra.variance[:, index]
 
         tmp_flux_nanr = np.array([cu.filter_nans(arr) for arr in tmp_flux])
@@ -171,7 +182,7 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
 
         print("mock_photo", photo, photoU)
 
-    return best_fit_raw, total_variance, photo, photoU
+    return best_fit_raw, total_variance, best_fit_pol, pol_var, photo, photoU
 
 
 def curve_to_fit(x, *params):

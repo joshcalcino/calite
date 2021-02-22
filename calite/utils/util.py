@@ -6,7 +6,8 @@ import os
 
 def norm_diff_spectra(spectra1, spectra2):
     """
-    A function to obtain the normalised difference between two spectra.
+    A function to obtain the normalised difference between two spectra observed
+    on the same date.
 
     Parameters
     ----------
@@ -22,21 +23,33 @@ def norm_diff_spectra(spectra1, spectra2):
 
     """
 
-    if np.shape(spectra1.flux) != np.shape(spectra2.flux):
-        return np.array([np.nan])
+    # if np.shape(spectra1.flux) != np.shape(spectra2.flux):
+    #     return np.array([np.nan])
 
 
-    print(spectra2.numEpochs)
+    # print(spectra2.numEpochs)
 
-    for i in range(len(spectra1.flux[0, :])):
-        print(np.sum(len(spectra1.flux[:, i])))
+    # for i in range(len(spectra1.flux[0, :])):
+        # print(np.sum(len(spectra1.flux[:, i])))
 
     sum1 = np.array([np.nansum(spectra1.flux[:, i]) for i in range(len(spectra1.flux[0, :]) )])
     sum2 = np.array([np.nansum(spectra2.flux[:, i]) for i in range(len(spectra2.flux[0, :]) )])
 
-    print(sum1, sum2)
+    # print(sum1, sum2)
+    norm_diff = []
 
-    norm_diff = (sum1 - sum2)/sum1
+    for i in range(len(sum1)):
+        date = spectra1.dates[i]
+        if date == spectra2.dates[i]:
+            norm_diff.append((sum1 - sum2)/sum1)
+        else:
+            for j in range(len(sum2)):
+                if date == spectra2.date[j]:
+                    norm_diff.append((sum1 - sum2)/sum1)
+                    break
+
+
+    # norm_diff = (sum1 - sum2)/sum1
 
     return norm_diff
 

@@ -151,6 +151,130 @@ class SpectrumCoadd(Spectra):
         return self._runs
 
 
+
+class FitSpectrumCoadd(Spectra):
+    """
+    Spectrum class to hold the calibrated spectra that has been calibrated using
+    the fstar fitting method.
+
+    """
+
+    def __init__(self, filepath=None):
+        super(Spectra, self).__init__()
+
+        self.filepath = filepath
+
+        # Load the data and set self.data
+        self.data = self.load_data(filepath)
+
+        # Set other attributes
+        self.combinedFlux = self.data[0]
+        self.combinedVariance = self.data[1]
+        self.combinedPixels = self.data[2]
+        self.combined_scale_function = self.data[3]
+        self.combined_scale_function_variance = self.data[4]
+        self._wavelength = None
+        self._flux = None
+        self._variance = None
+        self._scale_function = None
+        self._scale_function_variance = None
+        self._fluxCoadd = None
+        self._varianceCoadd = None
+        self._dates = None
+        self._runs = None
+        self.numEpochs = int((np.size(self.data) - 3) / 5)
+        self.RA = self.combinedFlux.header['RA']
+        self.DEC = self.combinedFlux.header['DEC']
+        self.field = self.combinedFlux.header['FIELD']
+        self.n_pix = self.combinedFlux.header['NAXIS1']
+        self.cdelt1 = self.combinedFlux.header['cdelt1']  # Wavelength interval between subsequent pixels
+        self.crpix1 = self.combinedFlux.header['crpix1']
+        self.crval1 = self.combinedFlux.header['crval1']
+        self.len_wavelength = len(self.wavelength)
+
+        if 'z' in self.combinedFlux.header.keys():
+            self.redshift = self.combinedFlux.header['z']
+        else:
+            self.redshift = 0.0
+
+        # self.fluxCoadd = self.combinedFlux.data
+        # self.varianceCoadd = self.combinedVariance.data
+        self.badpixCoadd = self.combinedPixels.data
+        self.len_wavelength = len(self.wavelength)
+
+    @property
+    def fluxCoadd(self):
+        if getattr(self, '_fluxCoadd', None) is None:
+            self._fluxCoadd = np.zeros(self.len_wavelength, dtype=np.float_)
+            self._fluxCoadd[:] = self.data[0].data
+        return self._fluxCoadd
+
+    @property
+    def varianceCoadd(self):
+        if getattr(self, '_varianceCoadd', None) is None:
+            self._varianceCoadd = np.zeros(self.len_wavelength, dtype=np.float_)
+            self._varianceCoadd[:] = self.data[1].data
+        return self._varianceCoadd
+
+    @property
+    def runs(self):
+        if getattr(self, '_runs', None) is None:
+            self._runs = np.zeros(self.numEpochs, dtype=float)
+            for i in range(self.numEpochs):
+                self._runs[i] = self.data[i * 5 + 3].header['RUN']  # this give the run number of the observation
+        return self._runs
+
+    @property
+    def flux(self):
+        if getattr(self, '_flux', None) is None:
+            self._flux = np.zeros((self.len_wavelength, self.numEpochs), dtype=float)
+            for i in range(self.numEpochs):
+                self._flux[:, i] = self.data[i * 5 + 3].data
+        return self._flux
+
+    @property
+    def variance(self):
+        if getattr(self, '_variance', None) is None:
+            self._variance = np.zeros((self.len_wavelength, self.numEpochs), dtype=float)
+            for i in range(self.numEpochs):
+                self._variance[:, i] = self.data[i * 5 + 4].data
+        return self._variance
+
+    @property
+    def scale_function(self):
+        if getattr(self, '_scale_function', None) is None:
+            self._scale_function = np.zeros((self.len_wavelength, self.numEpochs), dtype=float)
+            for i in range(self.numEpochs):
+                self._scale_function[:, i] = self.data[i * 5 + 5].data
+        return self._scale_function
+
+    @property
+    def scaling_function_variance(self):
+        if getattr(self, '_flux', None) is None:
+            self._scale_function_variance = np.zeros((self.len_wavelength, self.numEpochs), dtype=float)
+            for i in range(self.numEpochs):
+                self._scale_function_variance[:, i] = self.data[i * 5 + 6].data
+        return self._scale_function_variance
+
+    @property
+    def badpix(self):
+        if getattr(self, '_badpix', None) is None:
+            self._badpix = np.zeros((self.len_wavelength, self.numEpochs), dtype=float)
+            for i in range(self.numEpochs):
+                self._badpix[:, i] = self.data[i * 5 + 5].data
+        return self._badpix
+
+    @property
+    def dates(self):
+        if getattr(self, '_dates', None) is None:
+            self._dates = np.zeros(self.numEpochs, dtype=float)
+            for i in range(self.numEpochs):
+                self._dates[i] = round(self.data[i * 5 + 3].header['UTMJD'],3)
+                # this give Modified Julian Date (UTC) that observation was taken
+        return self._dates
+
+
+
 class Spectrumv18(Spectra):
     """
     Read in spectral data assuming the format from v18 of the OzDES reduction

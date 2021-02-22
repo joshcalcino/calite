@@ -126,7 +126,7 @@ def calib_star_from_template_fit(obj_name, spectra, photo, outBase, filters, plo
     template_spectra = cu.get_best_spectra_template(photo, filters)
 
     # Then we calculate the scale factors
-    badData, scaling = scaling_matrix_from_fit(spectra, template_spectra, extensions, badQC, photo, filters, plotFlag, **kwargs)
+    badData, scaling, best_fit_pol, pol_var = scaling_matrix_from_fit(spectra, template_spectra, extensions, badQC, photo, filters, plotFlag, **kwargs)
 
     # Remove last minute trouble makers
     extensions = [e for e in extensions if e not in badData]
@@ -140,13 +140,14 @@ def calib_star_from_template_fit(obj_name, spectra, photo, outBase, filters, plo
 
     if coaddFlag == False:
         outName = outBase + obj_name + "_fitscaled.fits"
-        sio.create_output_single(obj_name, extensions, scaling, spectra,
+        sio.create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, spectra,
                                     noPhotometry, badQC, photo.name,
                                     outName, redshift)
 
     elif coaddFlag in ['Run', 'Date', 'All']:
         outName = outBase + obj_name + "_fitscaled_" + coaddFlag + ".fits"
-        coadd_output(obj_name, extensions, scaling, spectra,
+        raise NotImplementedError
+        coadd_fit_output(obj_name, extensions, best_fit_pol, pol_var, spectra,
                             noPhotometry, badQC, photo.name,
                             outName, plotFlag, coaddFlag, redshift)
     else:
@@ -422,6 +423,9 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
     ozdesPhotoU = np.zeros((3, spectra.numEpochs))
     mock_photo_var = np.zeros((3, spectra.numEpochs))
 
+    best_fit_pol = np.zeros((len(spectra.wavelength), spectra.numEpochs))
+    pol_var = np.zeros((len(spectra.wavelength), spectra.numEpochs))
+
 
     badData = []
 
@@ -441,11 +445,13 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
         # print("Ozdesphoto", ozdesPhoto)
         # print("OzdesphotoU", ozdesPhotoU)
 
-        if np.isnan(ozdesPhoto[:, e]).any() == True:
-            badData.append(e)
-
-        spectra.flux[:, e], spectra.variance[:, e], mock_photo[:, e], mock_photo_var[:, e] =\
+        spectra.flux[:, e], spectra.variance[:, e], best_fit_pol[:, e], pol_var[:, e], mock_photo[:, e], mock_photo_var[:, e] =\
             sf.fit_spectra_to_coadd(spectra, coadd_spectra, filters, fit_method='emcee', index=e, **kwargs)
+
+        # plt.plot(spectra.wavelength, best_fit_pol)
+        # # plt.plot(spectra.wavelength, pol_var)
+        # plt.fill_between(spectra.wavelength, best_fit_pol - np.sqrt(pol_var), best_fit_pol + np.sqrt(pol_var), alpha=0.5)
+        # plt.show()
 
         print("ozdesphoto", ozdesPhoto[0, e])
 
@@ -464,7 +470,10 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
         scaling[11, e] = mock_photo_var[1, e]
         scaling[13, e] = mock_photo_var[2, e]
 
-    return badData, scaling
+        if np.isnan(ozdesPhoto[:, e]).any() == True or np.isnan(mock_photo[:, e]).any == True:
+            badData.append(e)
+
+    return badData, scaling, best_fit_pol, pol_var
 
 
 def mock_photo_from_fit(scale_factor, scale_factor_sigma, ozdes_photo):

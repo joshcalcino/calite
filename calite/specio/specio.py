@@ -46,9 +46,11 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
     index = 0
     # Create an HDU for each night
     for i in extensions:
-        for s, j in enumerate(scaling[:, i]):
+        print(scaling[:, i])
+        for j, s in enumerate(scaling[:, i]):
+            print(s)
             if not np.isfinite(s):
-                scaling[j, i] = 0            
+                scaling[j, i] = 0
 
         header = fits.Header()
         header['SOURCE'] = obj_name
@@ -110,6 +112,104 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
             hdulist.append(fits.ImageHDU(data=spectra.flux[:, i], header=header))
             hdulist.append(fits.ImageHDU(data=spectra.variance[:, i], header=header))
             hdulist.append(fits.ImageHDU(data=spectra.badpix[:, i], header=header))
+
+
+    filepath = os.path.dirname(outName)
+    if not os.path.exists(filepath):
+        build_path(filepath)
+
+    hdulist.writeto(outName, overwrite=True)
+    hdulist.close()
+
+    return
+
+
+def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, spectra, noPhotometry, badQC, photoName, outName,
+                         redshift):
+    """Apply calibration to spectra and save to a new file.
+    Parameters
+    ----------
+    obj_name : string
+        The name of the object
+    extensions : array, shape (n_samples_Y, n_features), (optional, default=None)
+        Right argument of the returned kernel k(X, Y). If None, k(X, X)
+        if evaluated instead.
+
+    Returns
+    -------
+    K :
+    """
+
+    print("Saving Data to " + outName)
+
+    hdulist = fits.HDUList(fits.PrimaryHDU())
+
+    noPhotometryExt = []
+    if len(noPhotometry) > 0:
+        for i in range(len(noPhotometry)):
+            noPhotometryExt.append(spectra.ext[noPhotometry[i]])
+
+    badQCExt = []
+    if len(badQC) > 0:
+        for i in range(len(badQC)):
+            badQCExt.append(spectra.ext[badQC[i]])
+
+    index = 0
+    # Create an HDU for each night
+    for i in extensions:
+        # print(scaling[:, i])
+        # for j, s in enumerate(scaling[:, i]):
+        #     print(s)
+        #     if not np.isfinite(s):
+        #         scaling[j, i] = 0
+
+        header = fits.Header()
+        header['SOURCE'] = obj_name
+        header['RA'] = spectra.RA
+        header['DEC'] = spectra.DEC
+        header['FIELD'] = spectra.field
+        header['CRPIX1'] = spectra.crpix1
+        header['CRVAL1'] = spectra.crval1
+        header['CDELT1'] = spectra.cdelt1
+        header['CTYPE1'] = 'wavelength'
+        header['CUNIT1'] = 'angstrom'
+        header['EPOCHS'] = len(extensions)
+        header['z'] = redshift[0]
+
+        # save the names of the input data and the extensions ignored
+        header['SFILE'] = spectra.filepath
+        header['PFILE'] = photoName
+        header['NOPHOTO'] = ','.join(map(str, noPhotometryExt))
+        header['BADQC'] = ','.join(map(str, badQCExt))
+
+        # save the original spectrum's extension number and some other details
+        header["EXT"] = spectra.ext[i]
+        header["UTMJD"] = spectra.dates[i]
+        header["EXPOSE"] = spectra.exposed[i]
+        header["QC"] = spectra.qc[i]
+
+        # print('*****EXTENSION {}*******'.format(i))
+        # for key in header.keys():
+        #     print(key, header[key])
+
+
+        if index == 0:
+            for key in header.keys():
+                hdulist[0].header[key] = header[key]
+
+            hdulist[0].data = spectra.flux[:, i]
+            hdulist.append(fits.ImageHDU(data=spectra.variance[:, i], header=header))
+            hdulist.append(fits.ImageHDU(data=spectra.badpix[:, i], header=header))
+            hdulist.append(fits.ImageHDU(data=best_fit_pol[:, i], header=header))
+            hdulist.append(fits.ImageHDU(data=pol_var[:, i], header=header))
+            index = 2
+
+        else:
+            hdulist.append(fits.ImageHDU(data=spectra.flux[:, i], header=header))
+            hdulist.append(fits.ImageHDU(data=spectra.variance[:, i], header=header))
+            hdulist.append(fits.ImageHDU(data=spectra.badpix[:, i], header=header))
+            hdulist.append(fits.ImageHDU(data=best_fit_pol[:, i], header=header))
+            hdulist.append(fits.ImageHDU(data=pol_var[:, i], header=header))
 
 
     filepath = os.path.dirname(outName)
