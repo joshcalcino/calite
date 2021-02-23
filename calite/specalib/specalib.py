@@ -125,7 +125,10 @@ def calib_star_from_template_fit(obj_name, spectra, photo, outBase, filters, plo
     # Find which Pickles spectra best matches this source
     template_spectra = cu.get_best_spectra_template(photo, filters)
 
+    print("DES photo", photo['g'], photo['r'], photo['i'])
+
     # Then we calculate the scale factors
+    # best_fit_raw, total_variance, best_fit_pol, pol_var, photo, photoU
     badData, scaling, best_fit_pol, pol_var = scaling_matrix_from_fit(spectra, template_spectra, extensions, badQC, photo, filters, plotFlag, **kwargs)
 
     # Remove last minute trouble makers
@@ -135,8 +138,8 @@ def calib_star_from_template_fit(obj_name, spectra, photo, outBase, filters, plo
 
     noPhotometry = []
 
-    print("scaling", scaling)
-    print("extensions", extensions)
+    # print("scaling", scaling)
+    # print("extensions", extensions)
 
     if coaddFlag == False:
         outName = outBase + obj_name + "_fitscaled.fits"
@@ -442,8 +445,6 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
 
-        # print("Ozdesphoto", ozdesPhoto)
-        # print("OzdesphotoU", ozdesPhotoU)
 
         spectra.flux[:, e], spectra.variance[:, e], best_fit_pol[:, e], pol_var[:, e], mock_photo[:, e], mock_photo_var[:, e] =\
             sf.fit_spectra_to_coadd(spectra, coadd_spectra, filters, fit_method='emcee', index=e, **kwargs)
@@ -457,7 +458,7 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
 
         scaling[:3, e], scaling[3:6, e] = scale_factors(mock_photo[:, e] - ozdesPhoto[0, e],
                                                         mock_photo_var[:, e] + ozdesPhotoU[0, e])
-        # print(scaling[:3, e], scaling[3:6, e], ozdesPhoto[:, e])
+        print(scaling[:3, e], scaling[3:6, e])
 
 
         # mock_photo[:, e], mock_photo_var[:, e] = mock_photo_from_fit(scaling[:3, e], scaling[3:6, e], ozdesPhoto[:, e])

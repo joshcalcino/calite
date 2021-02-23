@@ -167,15 +167,17 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
 
         model_variance = np.sqrt(np.std(tmp_flux, axis=0))
         pol_var = np.sqrt(np.std(tmp_pol, axis=0))
-        total_variance = model_variance + fit_spectra.variance[:, index]
+        total_variance = model_variance + fit_spectra.variance[:, index] * 1e-17 *\
+         np.polynomial.Polynomial(max_likelihoods)(np.linspace(0, 1, len(fit_spectra.wavelength)))
 
         tmp_flux_nanr = np.array([cu.filter_nans(arr) for arr in tmp_flux])
 
         for i, band in enumerate(filters.bands):
-            photo[i] = cu.compute_mag_fast(filters[band], fit_spectra.wavelength, best_fit)
+            # photo[i] = cu.compute_mag_fast(filters[band], fit_spectra_wavelength_fit, best_fit)
+            photo[i] = cu.compute_mag_fast(filters[band], fit_spectra.wavelength, best_fit_raw)
 
             for j in range(nchain_samples):
-                tmp_samples[j] = cu.compute_mag_fast(filters[band], fit_spectra_wavelength, tmp_flux[j])
+                tmp_samples[j] = cu.compute_mag_fast(filters[band], fit_spectra.wavelength, tmp_flux[j])
 
             # The histogram of this distribution is not very Gaussian..
             photoU[i] = np.std(tmp_samples)

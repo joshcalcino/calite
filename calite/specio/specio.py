@@ -46,13 +46,14 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
     index = 0
     # Create an HDU for each night
     for i in extensions:
-        print(scaling[:, i])
+        # print(scaling[:, i])
         for j, s in enumerate(scaling[:, i]):
-            print(s)
+            # print(s)
             if not np.isfinite(s):
                 scaling[j, i] = 0
 
         header = fits.Header()
+
         header['SOURCE'] = obj_name
         header['RA'] = spectra.RA
         header['DEC'] = spectra.DEC
@@ -92,6 +93,18 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
         header["MAGUR"] = scaling[11, i]
         header["MAGI"] = scaling[12, i]
         header["MAGUI"] = scaling[13, i]
+        # header["APPRA"] = spectra.data_headers[i]["APPRA"]
+        # header["APPDEC"] = spectra.data_headers[i]["APPDEC"]
+
+        current_header = spectra.data_headers[i]
+        keys = ['APPRA', 'APPDEC']
+
+        for key in keys:
+            if key not in header.keys():
+                try:
+                    header[key] = current_header[key]
+                except ValueError:
+                    pass
 
         # print('*****EXTENSION {}*******'.format(i))
         # for key in header.keys():
@@ -187,6 +200,16 @@ def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, spectr
         header["UTMJD"] = spectra.dates[i]
         header["EXPOSE"] = spectra.exposed[i]
         header["QC"] = spectra.qc[i]
+
+        current_header = spectra.data_headers[i]
+        keys = ['APPRA', 'APPDEC']
+
+        for key in keys:
+            if key not in header.keys():
+                try:
+                    header[key] = current_header[key]
+                except ValueError:
+                    pass
 
         # print('*****EXTENSION {}*******'.format(i))
         # for key in header.keys():

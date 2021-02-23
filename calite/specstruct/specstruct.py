@@ -53,6 +53,16 @@ class Spectra(object):
                 # this give Modified Julian Date (UTC) that observation was taken
         return self._dates
 
+    @property
+    def data_headers(self):
+        if getattr(self, '_data_headers') is None:
+            self._data_headers = []
+            for i in range(self.numEpochs):
+                header = {}
+                for key in self.data[i * 3 + 3].header.keys():
+                    header[key] = self.data[i * 3 + 3].header[key]
+                self._data_headers.append(header)
+        return self._data_headers
 
     @classmethod
     def load_data(self, filepath):
@@ -178,6 +188,7 @@ class FitSpectrumCoadd(Spectra):
         self._variance = None
         self._scale_function = None
         self._scale_function_variance = None
+        self._data_headers = None
         self._fluxCoadd = None
         self._varianceCoadd = None
         self._dates = None
@@ -221,7 +232,7 @@ class FitSpectrumCoadd(Spectra):
         if getattr(self, '_runs', None) is None:
             self._runs = np.zeros(self.numEpochs, dtype=float)
             for i in range(self.numEpochs):
-                self._runs[i] = self.data[i * 5 + 3].header['RUN']  # this give the run number of the observation
+                self._runs[i] = self.data[i * 5 + 5].header['RUN']  # this give the run number of the observation
         return self._runs
 
     @property
@@ -229,7 +240,7 @@ class FitSpectrumCoadd(Spectra):
         if getattr(self, '_flux', None) is None:
             self._flux = np.zeros((self.len_wavelength, self.numEpochs), dtype=float)
             for i in range(self.numEpochs):
-                self._flux[:, i] = self.data[i * 5 + 3].data
+                self._flux[:, i] = self.data[i * 5 + 5].data
         return self._flux
 
     @property
@@ -237,15 +248,23 @@ class FitSpectrumCoadd(Spectra):
         if getattr(self, '_variance', None) is None:
             self._variance = np.zeros((self.len_wavelength, self.numEpochs), dtype=float)
             for i in range(self.numEpochs):
-                self._variance[:, i] = self.data[i * 5 + 4].data
+                self._variance[:, i] = self.data[i * 5 + 6].data
         return self._variance
+
+    @property
+    def badpix(self):
+        if getattr(self, '_badpix', None) is None:
+            self._badpix = np.zeros((self.len_wavelength, self.numEpochs), dtype=float)
+            for i in range(self.numEpochs):
+                self._badpix[:, i] = self.data[i * 5 + 7].data
+        return self._badpix
 
     @property
     def scale_function(self):
         if getattr(self, '_scale_function', None) is None:
             self._scale_function = np.zeros((self.len_wavelength, self.numEpochs), dtype=float)
             for i in range(self.numEpochs):
-                self._scale_function[:, i] = self.data[i * 5 + 5].data
+                self._scale_function[:, i] = self.data[i * 5 + 8].data
         return self._scale_function
 
     @property
@@ -253,16 +272,19 @@ class FitSpectrumCoadd(Spectra):
         if getattr(self, '_flux', None) is None:
             self._scale_function_variance = np.zeros((self.len_wavelength, self.numEpochs), dtype=float)
             for i in range(self.numEpochs):
-                self._scale_function_variance[:, i] = self.data[i * 5 + 6].data
+                self._scale_function_variance[:, i] = self.data[i * 5 + 9].data
         return self._scale_function_variance
 
     @property
-    def badpix(self):
-        if getattr(self, '_badpix', None) is None:
-            self._badpix = np.zeros((self.len_wavelength, self.numEpochs), dtype=float)
+    def data_headers(self):
+        if getattr(self, '_data_headers') is None:
+            self._data_headers = []
             for i in range(self.numEpochs):
-                self._badpix[:, i] = self.data[i * 5 + 5].data
-        return self._badpix
+                header = {}
+                for key in self.data[i * 5 + 5].header.keys():
+                    header[key] = self.data[i * 5 + 5].header[key]
+                self._data_headers.append(header)
+        return self._data_headers
 
     @property
     def dates(self):
@@ -316,6 +338,7 @@ class Spectrumv18(Spectra):
         self._ext = None
         self._qc = None
         self._exposed = None
+        self._data_headers = None
 
         self.name = obj_name
 
