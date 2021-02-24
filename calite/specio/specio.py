@@ -202,7 +202,7 @@ def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, spectr
         header["QC"] = spectra.qc[i]
 
         current_header = spectra.data_headers[i]
-        keys = ['APPRA', 'APPDEC']
+        keys = ['MEANRA', 'MEANDEC']
 
         for key in keys:
             if key not in header.keys():
