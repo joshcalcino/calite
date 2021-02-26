@@ -239,7 +239,8 @@ def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, pol_va
             hdulist.append(fits.ImageHDU(data=best_fit_pol[:, i], header=header))
             hdulist.append(fits.ImageHDU(data=pol_var[:, i], header=header))
 
-    index += 1
+        index += 1
+
     filepath = os.path.dirname(outName)
     if not os.path.exists(filepath):
         build_path(filepath)

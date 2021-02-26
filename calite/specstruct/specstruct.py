@@ -127,6 +127,7 @@ class SpectrumCoadd(Spectra):
         self.crpix1 = self.combinedFlux.header['crpix1']
         self.crval1 = self.combinedFlux.header['crval1']
         self.len_wavelength = len(self.wavelength)
+        self._data_headers = None
 
         if 'z' in self.combinedFlux.header.keys():
             self.redshift = self.combinedFlux.header['z']
