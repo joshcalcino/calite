@@ -394,6 +394,17 @@ class Spectrumv18(Spectra):
                 # this will give you the exposure time of each observation
         return self._exposed
 
+    @property
+    def data_headers(self):
+        if getattr(self, '_data_headers') is None:
+            self._data_headers = []
+            for i in range(self.numEpochs):
+                header = {}
+                for key in self.data[i * 3 + 3].header.keys():
+                    header[key] = self.data[i * 3 + 3].header[key]
+                self._data_headers.append(header)
+        return self._data_headers
+
 
 class SingleSpec(object):
     """

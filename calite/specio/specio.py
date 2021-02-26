@@ -137,7 +137,7 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
     return
 
 
-def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, spectra, noPhotometry, badQC, photoName, outName,
+def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, pol_vals, spectra, noPhotometry, badQC, photoName, outName,
                          redshift):
     """Apply calibration to spectra and save to a new file.
     Parameters
@@ -201,8 +201,13 @@ def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, spectr
         header["EXPOSE"] = spectra.exposed[i]
         header["QC"] = spectra.qc[i]
 
+        for j in range(len(pol_vals[0])):
+            pol_key = 'param' + str(j)
+            header[pol_key] = pol_vals[index, j]
+
         current_header = spectra.data_headers[i]
         keys = ['MEANRA', 'MEANDEC']
+
 
         for key in keys:
             if key not in header.keys():
@@ -225,7 +230,7 @@ def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, spectr
             hdulist.append(fits.ImageHDU(data=spectra.badpix[:, i], header=header))
             hdulist.append(fits.ImageHDU(data=best_fit_pol[:, i], header=header))
             hdulist.append(fits.ImageHDU(data=pol_var[:, i], header=header))
-            index = 2
+
 
         else:
             hdulist.append(fits.ImageHDU(data=spectra.flux[:, i], header=header))
@@ -234,7 +239,7 @@ def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, spectr
             hdulist.append(fits.ImageHDU(data=best_fit_pol[:, i], header=header))
             hdulist.append(fits.ImageHDU(data=pol_var[:, i], header=header))
 
-
+    index += 1
     filepath = os.path.dirname(outName)
     if not os.path.exists(filepath):
         build_path(filepath)

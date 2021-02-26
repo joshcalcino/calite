@@ -184,7 +184,7 @@ def fit_spectra_to_coadd(fit_spectra, template_spectra, filters, fit_method='emc
 
         print("mock_photo", photo, photoU)
 
-    return best_fit_raw, total_variance, best_fit_pol, pol_var, photo, photoU
+    return best_fit_raw, total_variance, best_fit_pol, pol_var, max_likelihoods, photo, photoU
 
 
 def curve_to_fit(x, *params):
