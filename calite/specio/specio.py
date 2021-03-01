@@ -137,7 +137,7 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
     return
 
 
-def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, pol_vals, spectra, noPhotometry, badQC, photoName, outName,
+def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, pol_vals, scaling, spectra, noPhotometry, badQC, photoName, outName,
                          redshift):
     """Apply calibration to spectra and save to a new file.
     Parameters
@@ -200,6 +200,14 @@ def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, pol_va
         header["UTMJD"] = spectra.dates[i]
         header["EXPOSE"] = spectra.exposed[i]
         header["QC"] = spectra.qc[i]
+
+        # save scale factors/uncertainties
+        header["SCALEG"] = scaling[0, i]
+        header["ERRORG"] = scaling[3, i]
+        header["SCALER"] = scaling[1, i]
+        header["ERRORR"] = scaling[4, i]
+        header["SCALEI"] = scaling[2, i]
+        header["ERRORI"] = scaling[5, i]
 
         for j in range(len(pol_vals[0])):
             pol_key = 'param' + str(j)

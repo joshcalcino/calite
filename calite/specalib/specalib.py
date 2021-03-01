@@ -143,7 +143,7 @@ def calib_star_from_template_fit(obj_name, spectra, photo, outBase, filters, plo
 
     if coaddFlag == False:
         outName = outBase + obj_name + "_fitscaled.fits"
-        sio.create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, pol_vals, spectra,
+        sio.create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, pol_vals, scaling, spectra,
                                     noPhotometry, badQC, photo.name,
                                     outName, redshift)
 
@@ -462,7 +462,6 @@ def scaling_matrix_from_fit(spectra, coadd_spectra, extensions, badQC, photo, fi
 
         scaling[:3, e], scaling[3:6, e] = scale_factors(mock_photo[:, e] - ozdesPhoto[0, e],
                                                         mock_photo_var[:, e] + ozdesPhotoU[0, e])
-        print(scaling[:3, e], scaling[3:6, e])
 
 
         # mock_photo[:, e], mock_photo_var[:, e] = mock_photo_from_fit(scaling[:3, e], scaling[3:6, e], ozdesPhoto[:, e])
