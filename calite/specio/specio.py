@@ -97,7 +97,7 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
         # header["APPDEC"] = spectra.data_headers[i]["APPDEC"]
 
         current_header = spectra.data_headers[i]
-        keys = ['MEANRA', 'MEANDEC', 'PLATEX', 'PLATEY', 'SOURCE']
+        keys = ['MEANRA', 'MEANDEC', 'XPLATE', 'YPLATE', 'SOURCE', 'PIVOT']
 
         for key in keys:
             if key not in header.keys():
