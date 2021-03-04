@@ -214,7 +214,7 @@ def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, pol_va
             header[pol_key] = pol_vals[index, j]
 
         current_header = spectra.data_headers[i]
-        keys = ['MEANRA', 'MEANDEC', 'PLATEX', 'PLATEY', 'SOURCE']
+        keys = ['MEANRA', 'MEANDEC', 'XPLATE', 'YPLATE', 'SOURCE', 'PIVOT']
 
         for key in keys:
             if key not in header.keys():
