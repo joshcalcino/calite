@@ -54,7 +54,7 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
 
         header = fits.Header()
 
-        header['SOURCE'] = obj_name
+        # header['SOURCE'] = obj_name
         header['RA'] = spectra.RA
         header['DEC'] = spectra.DEC
         header['FIELD'] = spectra.field
@@ -97,7 +97,7 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
         # header["APPDEC"] = spectra.data_headers[i]["APPDEC"]
 
         current_header = spectra.data_headers[i]
-        keys = ['MEANRA', 'MEANDEC', 'XPLATE', 'YPLATE', 'SOURCE', 'PIVOT']
+        keys = ['MEANRA', 'MEANDEC', 'XPLATE', 'YPLATE', 'SOURCE', 'PIVOT', 'ORIGTARG']
 
         for key in keys:
             if key not in header.keys():
@@ -177,7 +177,7 @@ def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, pol_va
         #         scaling[j, i] = 0
 
         header = fits.Header()
-        header['SOURCE'] = obj_name
+        # header['SOURCE'] = obj_name
         header['RA'] = spectra.RA
         header['DEC'] = spectra.DEC
         header['FIELD'] = spectra.field
@@ -214,7 +214,7 @@ def create_fit_output_single(obj_name, extensions, best_fit_pol, pol_var, pol_va
             header[pol_key] = pol_vals[index, j]
 
         current_header = spectra.data_headers[i]
-        keys = ['MEANRA', 'MEANDEC', 'XPLATE', 'YPLATE', 'SOURCE', 'PIVOT']
+        keys = ['MEANRA', 'MEANDEC', 'XPLATE', 'YPLATE', 'SOURCE', 'PIVOT', 'ORIGTARG']
 
         for key in keys:
             if key not in header.keys():
