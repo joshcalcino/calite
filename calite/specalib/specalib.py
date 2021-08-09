@@ -263,8 +263,10 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, filters, int
     # gMag = scaling[8,:]   gMagError = scaling[9,:] (interpolated from neighbouring observations)
     # rMag = scaling[10,:]   rMagError = scaling[11,:]
     # iMag = scaling[12,:]   iMagError = scaling[13,:]
-
-    scaling = np.zeros((14, spectra.numEpochs))
+    # O_gMag = scaling[14,:]   O_gMagError = scaling[15,:] (interpolated from neighbouring observations)
+    # O_rMag = scaling[16,:]   O_rMagError = scaling[17,:]
+    # O_iMag = scaling[18,:]   O_iMagError = scaling[19,:]
+    scaling = np.zeros((20, spectra.numEpochs))
 
     # Judge goodness of spectra
     for e in range(spectra.numEpochs):
@@ -349,6 +351,13 @@ def scaling_Matrix(spectra, extensions, badQC, noPhotometry, photo, filters, int
         ozdesPhoto[2, e], ozdesPhotoU[2, e] = cu.computeABmag(filters['i'],
                                                            spectra.wavelength, spectra.flux[:, e],
                                                            spectra.variance[:, e])
+        scaling[14, e] = ozdesPhoto[0, e]
+        scaling[16, e] = ozdesPhoto[1, e]
+        scaling[18, e] = ozdesPhoto[2, e]
+
+        scaling[15, e] = ozdesPhotoU[0, e]
+        scaling[17, e] = ozdesPhotoU[1, e]
+        scaling[19, e] = ozdesPhotoU[2, e]
 
         # Sometimes the total flux in the band goes zero and this obviously creates issues further down the line and
         # is most noticeable when the calculated magnitude is nan.  Sometimes it is because the data is very noisy

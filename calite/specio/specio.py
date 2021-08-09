@@ -389,6 +389,23 @@ def create_output_coadd(obj_name, runList, fluxArray, varianceArray, badpixArray
                 head15 = "MAGUI" + str(index)
                 header[head15] = scaling[13, i]
 
+                head16 = "O_MAGG" + str(index)
+                header[head16] = scaling[14, i]
+
+                head17 = "O_MAGUG" + str(index)
+                header[head17] = scaling[15, i]
+
+                head18 = "O_MAGR" + str(index)
+                header[head18] = scaling[16, i]
+
+                head19 = "O_MAGUR" + str(index)
+                header[head19] = scaling[17, i]
+
+                head20 = "O_MAGI" + str(index)
+                header[head20] = scaling[18, i]
+
+                head21 = "O_MAGUI" + str(index)
+                header[head21] = scaling[19, i]
                 index += 1
 
         if date > 0:
