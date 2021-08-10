@@ -93,6 +93,13 @@ def create_output_single(obj_name, extensions, scaling, spectra, noPhotometry, b
         header["MAGUR"] = scaling[11, i]
         header["MAGI"] = scaling[12, i]
         header["MAGUI"] = scaling[13, i]
+
+        header["O_MAGG"] = scaling[14, i]
+        header["O_MAGUG"] = scaling[15, i]
+        header["O_MAGR"] = scaling[16, i]
+        header["O_MAGUR"] = scaling[17, i]
+        header["O_MAGI"] = scaling[18, i]
+        header["O_MAGUI"] = scaling[19, i]
         # header["APPRA"] = spectra.data_headers[i]["APPRA"]
         # header["APPDEC"] = spectra.data_headers[i]["APPDEC"]
 
